@@ -254,26 +254,28 @@ Page({
         console.log('[ASR] 响应体:', res.data)
 
         if (res.statusCode === 200 && res.data) {
-          // DashScope 响应: output.choices[0].message.content
-          var choices = res.data.output && res.data.output.choices
-          if (choices && choices[0]) {
-            var message = choices[0].message
-            var text = ''
-            if (Array.isArray(message.content)) {
-              text = message.content.map(function (item) { return item.text || '' }).join('')
-            } else if (typeof message.content === 'string') {
-              text = message.content
+          // 响应体结构: { text: "识别文本", sentence: {...}, output: {...}, usage: {...} }
+          var text = res.data.text || ''
+          if (!text) {
+            // 降级尝试 output.choices[0].message.content
+            var choices = res.data.output && res.data.output.choices
+            if (choices && choices[0] && choices[0].message) {
+              if (Array.isArray(choices[0].message.content)) {
+                text = choices[0].message.content.map(function (item) { return item.text || '' }).join('')
+              } else if (typeof choices[0].message.content === 'string') {
+                text = choices[0].message.content
+              }
             }
+          }
 
-            if (text) {
-              console.log('[ASR] 识别成功, 文本:', text)
-              that.setData({
-                ['messages[' + userIndex + '].content']: text,
-                loadingText: 'AI 正在思考...'
-              })
-              that.callHY3(text, assistantIndex)
-              return
-            }
+          if (text) {
+            console.log('[ASR] 识别成功, 文本:', text)
+            that.setData({
+              ['messages[' + userIndex + '].content']: text,
+              loadingText: 'AI 正在思考...'
+            })
+            that.callHY3(text, assistantIndex)
+            return
           }
         }
 
