@@ -1,3 +1,5 @@
 {
-  "navigationBarTitleText": "AI 对话"
+  "navigationBarTitleText": "智能语音记账",
+  "navigationBarBackgroundColor": "#e0f2fe",
+  "navigationBarTextStyle": "black"
 }

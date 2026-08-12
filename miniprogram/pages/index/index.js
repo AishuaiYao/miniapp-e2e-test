@@ -2,87 +2,84 @@ var app = getApp()
 
 Page({
   data: {
-    messages: [
-      { role: 'assistant', content: '你好，按住下方按钮说话，我来帮你回答' }
-    ],
+    // 录音状态
     recording: false,
     loading: false,
     recordDuration: 0,
     recordStatusText: '正在录音...',
     loadingText: '正在识别语音...',
-    scrollToId: ''
+
+    // ASR 结果
+    asrText: '',
+
+    // 记账数据
+    records: [],
+    totalIncome: 0,
+    totalExpense: 0,
+    balance: 0,
+
+    // 饼状图数据
+    pieData: [],
+
+    // 分类统计
+    categoryStats: [],
+    activeTab: 'all', // all / expense / income
+    filteredRecords: []
   },
 
   // 录音管理器
   recorderManager: null,
-  // 录音计时器
   durationTimer: null,
-  // 录音开始时间
   recordStartTime: 0,
+  // 本地录音路径（本次）
+  localAudioPath: '',
+  audioContext: null,
+  playingIndex: -1,
 
   onLoad: function () {
-    // 获取全局唯一的录音管理器
     this.recorderManager = wx.getRecorderManager()
+    var that = this
 
-    // 监听录音开始
     this.recorderManager.onStart(function () {
       console.log('[录音] 开始录音')
     })
 
-    // 监听录音结束
-    var that = this
     this.recorderManager.onStop(function (res) {
-      console.log('[录音] 结束录音, duration:', res.duration, 'ms, fileSize:', res.fileSize, 'bytes')
-      console.log('[录音] 录音文件路径:', res.tempFilePath)
+      console.log('[录音] 结束, duration:', res.duration, 'ms, path:', res.tempFilePath)
       that.handleRecordEnd(res)
     })
 
-    // 监听录音错误
     this.recorderManager.onError(function (err) {
-      console.error('[录音] 录音错误:', err)
-      that.setData({
-        recording: false,
-        loading: false
-      })
-      wx.showToast({ title: '录音失败: ' + (err.errMsg || ''), icon: 'none' })
+      console.error('[录音] 错误:', err)
+      that.setData({ recording: false, loading: false })
+      wx.showToast({ title: '录音失败', icon: 'none' })
     })
+
+    // 加载本地存储的记账记录
+    this.loadRecords()
   },
 
-  // ========== 录音相关 ==========
+  // ========== 录音 ==========
 
   onRecordStart: function () {
-    if (this.data.loading || this.data.recording) {
-      console.log('[录音] 跳过：正在处理中或已录音中')
-      return
-    }
+    if (this.data.loading || this.data.recording) return
 
-    console.log('[录音] onRecordStart')
-
-    // 检查录音权限
     var that = this
     wx.getSetting({
       success: function (res) {
         if (res.authSetting['scope.record']) {
-          // 已授权，开始录音
           that.startRecording()
         } else {
-          // 未授权，请求授权
           wx.authorize({
             scope: 'scope.record',
-            success: function () {
-              console.log('[录音] 授权成功')
-              that.startRecording()
-            },
+            success: function () { that.startRecording() },
             fail: function () {
-              console.error('[录音] 授权失败')
               wx.showModal({
                 title: '提示',
-                content: '需要录音权限才能使用语音功能，请在设置中开启',
+                content: '需要录音权限才能使用语音功能',
                 confirmText: '去设置',
                 success: function (res) {
-                  if (res.confirm) {
-                    wx.openSetting()
-                  }
+                  if (res.confirm) wx.openSetting()
                 }
               })
             }
@@ -93,7 +90,6 @@ Page({
   },
 
   startRecording: function () {
-    console.log('[录音] 开始录音...')
     this.setData({
       recording: true,
       recordDuration: 0,
@@ -101,118 +97,73 @@ Page({
     })
     this.recordStartTime = Date.now()
 
-    // 开始计时
     var that = this
     this.durationTimer = setInterval(function () {
       var seconds = Math.floor((Date.now() - that.recordStartTime) / 1000)
       that.setData({ recordDuration: seconds })
-      console.log('[录音] 已录制', seconds, 's')
-
-      // 最长 60 秒
       if (seconds >= 60) {
-        console.log('[录音] 达到60秒上限，自动停止')
         that.recorderManager.stop()
       }
     }, 1000)
 
-    // 开始录音
     this.recorderManager.start({
-      duration: 60000,       // 最长 60 秒
-      sampleRate: 16000,     // 16K 采样率
-      numberOfChannels: 1,   // 单声道
-      encodeBitRate: 48000,  // 编码码率
-      format: 'mp3'          // mp3 格式
+      duration: 60000,
+      sampleRate: 16000,
+      numberOfChannels: 1,
+      encodeBitRate: 48000,
+      format: 'mp3'
     })
   },
 
   onRecordEnd: function () {
-    if (!this.data.recording) {
-      return
-    }
-    console.log('[录音] onRecordEnd, 停止录音')
+    if (!this.data.recording) return
     this.recorderManager.stop()
   },
 
-  // ========== 处理录音结束 ==========
-
   handleRecordEnd: function (res) {
-    // 清除计时器
     if (this.durationTimer) {
       clearInterval(this.durationTimer)
       this.durationTimer = null
     }
 
     var duration = Math.floor((Date.now() - this.recordStartTime) / 1000)
-    console.log('[录音] 实际录制时长:', duration, 's')
-
-    // 录音太短，忽略
     if (duration < 1) {
-      console.log('[录音] 录音太短(<1s)，忽略')
       this.setData({ recording: false })
       wx.showToast({ title: '录音太短，请长按说话', icon: 'none' })
       return
     }
 
+    this.localAudioPath = res.tempFilePath
     this.setData({
       recording: false,
       loading: true,
-      loadingText: '正在识别语音...'
-    })
-
-    // 先在 UI 中添加一条 user 消息（占位），记录本地录音文件路径
-    var msgs = this.data.messages.concat([
-      { role: 'user', content: '识别中...', audioPath: '', playing: false },
-      { role: 'assistant', content: '' }
-    ])
-    this.setData({
-      messages: msgs,
-      scrollToId: 'msg-' + (msgs.length - 1)
+      loadingText: '正在识别语音...',
+      asrText: ''
     })
 
     var that = this
-    var userIndex = msgs.length - 2
-    var assistantIndex = msgs.length - 1
-    var localAudioPath = res.tempFilePath
-
-    // 保存本地录音路径到消息中，用于播放
-    this.setData({
-      ['messages[' + userIndex + '].audioPath']: localAudioPath
-    })
-
-    // 读取本地录音文件，转 base64 后直接传给云函数（不经过云存储）
-    console.log('[ASR] 读取本地录音文件并转 base64:', localAudioPath)
     var fileManager = wx.getFileSystemManager()
     fileManager.readFile({
-      filePath: localAudioPath,
+      filePath: res.tempFilePath,
       encoding: 'base64',
       success: function (fileRes) {
-        var audioBase64 = fileRes.data
-        console.log('[ASR] base64 读取成功, 长度:', audioBase64.length)
-        that.callASR(audioBase64, userIndex, assistantIndex)
+        that.callASR(fileRes.data)
       },
       fail: function (err) {
-        console.error('[ASR] 读取本地录音文件失败:', err)
-        that.setData({
-          ['messages[' + userIndex + '].content']: '读取录音失败',
-          loading: false
-        })
+        console.error('[ASR] 读取文件失败:', err)
+        that.setData({ loading: false })
+        wx.showToast({ title: '读取录音失败', icon: 'none' })
       }
     })
   },
 
-  // ========== 调用 ASR（本地直接调阿里云） ==========
+  // ========== ASR ==========
 
-  callASR: function (audioBase64, userIndex, assistantIndex) {
-    console.log('[ASR] 本地直接调用阿里云 ASR, base64 长度:', audioBase64.length)
-
+  callASR: function (audioBase64) {
     var apiKey = app.getAliyunApiKey()
     if (!apiKey) {
-      console.error('[ASR] API Key 未加载')
-      this.setData({
-        ['messages[' + userIndex + '].content']: '配置加载失败',
-        ['messages[' + assistantIndex + '].content']: 'API Key 未就绪，请稍后重试',
-        loading: false
-      })
+      this.setData({ loading: false })
+      wx.showToast({ title: 'API Key 未就绪', icon: 'none' })
       return
     }
 
@@ -230,230 +181,484 @@ Page({
       data: {
         model: 'qwen-audio-3.0-asr-flash',
         input: {
-          messages: [
-            {
-              role: 'user',
-              content: [
-                {
-                  type: 'input_audio',
-                  input_audio: {
-                    data: audioData
-                  }
-                }
-              ]
-            }
-          ]
+          messages: [{
+            role: 'user',
+            content: [{ type: 'input_audio', input_audio: { data: audioData } }]
+          }]
         },
-        parameters: {
-          format: 'mp3',
-          sample_rate: '16000'
-        }
+        parameters: { format: 'mp3', sample_rate: '16000' }
       },
       success: function (res) {
-        console.log('[ASR] 响应 statusCode:', res.statusCode)
-        console.log('[ASR] 响应体:', res.data)
-
-        if (res.statusCode === 200 && res.data) {
-          // 响应体结构: { text: "识别文本", sentence: {...}, output: {...}, usage: {...} }
-          var text = res.data.text || ''
-          if (!text) {
-            // 降级尝试 output.choices[0].message.content
-            var choices = res.data.output && res.data.output.choices
-            if (choices && choices[0] && choices[0].message) {
-              if (Array.isArray(choices[0].message.content)) {
-                text = choices[0].message.content.map(function (item) { return item.text || '' }).join('')
-              } else if (typeof choices[0].message.content === 'string') {
-                text = choices[0].message.content
-              }
-            }
-          }
-
-          if (text) {
-            console.log('[ASR] 识别成功, 文本:', text)
-            that.setData({
-              ['messages[' + userIndex + '].content']: text,
-              loadingText: 'AI 正在思考...'
-            })
-            that.callHY3(text, assistantIndex)
-            return
-          }
+        console.log('[ASR] 响应:', res.data)
+        if (res.statusCode === 200 && res.data && res.data.text) {
+          var text = res.data.text
+          that.setData({
+            asrText: text,
+            loadingText: 'AI 正在分析...'
+          })
+          that.callHY3(text)
+        } else {
+          that.setData({ loading: false })
+          wx.showToast({ title: '识别失败', icon: 'none' })
         }
-
-        // 识别失败
-        var errMsg = (res.data && res.data.error && res.data.error.message) || '未知错误'
-        console.error('[ASR] 识别失败:', errMsg)
-        that.setData({
-          ['messages[' + userIndex + '].content']: '识别失败',
-          ['messages[' + assistantIndex + '].content']: '语音识别失败：' + errMsg,
-          loading: false
-        })
       },
       fail: function (err) {
-        console.error('[ASR] 请求失败:', err)
-        that.setData({
-          ['messages[' + userIndex + '].content']: '识别失败',
-          ['messages[' + assistantIndex + '].content']: '网络请求失败：' + (err.errMsg || ''),
-          loading: false
-        })
+        console.error('[ASR] 失败:', err)
+        that.setData({ loading: false })
+        wx.showToast({ title: '网络请求失败', icon: 'none' })
       }
     })
   },
 
-  // ========== 调用 HY3 大模型 ==========
+  // ========== HY3 记账分析 ==========
 
-  callHY3: function (text, assistantIndex) {
-    console.log('[HY3] 开始调用大模型, 输入:', text)
-
+  callHY3: function (text) {
     var that = this
     var answer = ''
-    var chunkCount = 0
     var startTime = Date.now()
 
     try {
       var model = wx.cloud.extend.AI.createModel('cloudbase')
 
+      var systemPrompt = '你是一个智能记账助手。用户会用语音描述收支信息，你需要分析并提取结构化数据。\n\n' +
+        '请严格按照以下JSON格式回复，不要有任何额外文字：\n' +
+        '{\n' +
+        '  "is_transaction": true/false,\n' +
+        '  "type": "expense/income",\n' +
+        '  "amount": 0,\n' +
+        '  "category": "大类",\n' +
+        '  "sub_category": "细类",\n' +
+        '  "description": "简短描述",\n' +
+        '  "reply": "给用户的简短回复"\n' +
+        '}\n\n' +
+        '【支出大类及细类】\n' +
+        '餐饮：堂食、外卖、快餐、零食、饮料、咖啡、聚餐、夜宵、早餐、午餐、晚餐\n' +
+        '交通：打车、出租车、地铁、公交、共享单车、高铁、火车、飞机、停车费、加油、过路费、充电\n' +
+        '购物：日用品、文具、电子设备、数码配件、家居用品、厨房用具\n' +
+        '服饰：衣服、裤子、鞋子、包、帽子、配饰、首饰\n' +
+        '娱乐：电影、游戏、KTV、密室、演唱会、演出、游乐场、视频会员、音乐会员\n' +
+        '住房：房租、房贷、水电费、燃气费、物业费、宽带、装修、维修\n' +
+        '医疗：门诊、药品、住院、体检、牙科、眼科、保健\n' +
+        '教育：学费、培训、书籍、课程、考试报名\n' +
+        '生活：理发、美容、洗浴、快递、洗衣、家政、宠物、话费\n' +
+        '社交：红包、礼物、请客、份子钱\n' +
+        '旅行：酒店、机票、门票、纪念品、跟团\n' +
+        '运动：健身、瑜伽、游泳、球类、装备\n' +
+        '其他支出：无法归类的支出\n\n' +
+        '【收入大类及细类】\n' +
+        '工资：基本工资、绩效、加班费\n' +
+        '奖金：年终奖、项目奖、全勤奖\n' +
+        '兼职：副业、自由职业、外包\n' +
+        '投资：股票、基金、理财、利息、分红\n' +
+        '红包：微信红包、转账、礼金\n' +
+        '退款：退货退款、报销\n' +
+        '其他收入：无法归类的收入\n\n' +
+        '【示例】\n' +
+        '用户："今天中午吃饭花了30块" → {"is_transaction":true,"type":"expense","amount":30,"category":"餐饮","sub_category":"午餐","description":"吃饭","reply":"已记：餐饮-午餐 30元"}\n' +
+        '用户："打车去公司花了15" → {"is_transaction":true,"type":"expense","amount":15,"category":"交通","sub_category":"打车","description":"打车去公司","reply":"已记：交通-打车 15元"}\n' +
+        '用户："扫了个共享单车1块5" → {"is_transaction":true,"type":"expense","amount":1.5,"category":"交通","sub_category":"共享单车","description":"共享单车","reply":"已记：交通-共享单车 1.5元"}\n' +
+        '用户："点了个外卖28块" → {"is_transaction":true,"type":"expense","amount":28,"category":"餐饮","sub_category":"外卖","description":"外卖","reply":"已记：餐饮-外卖 28元"}\n' +
+        '用户："买了件衣服199" → {"is_transaction":true,"type":"expense","amount":199,"category":"服饰","sub_category":"衣服","description":"买衣服","reply":"已记：服饰-衣服 199元"}\n' +
+        '用户："充了个月度视频会员25" → {"is_transaction":true,"type":"expense","amount":25,"category":"娱乐","sub_category":"视频会员","description":"视频会员","reply":"已记：娱乐-视频会员 25元"}\n' +
+        '用户："工资到账8000" → {"is_transaction":true,"type":"income","amount":8000,"category":"工资","sub_category":"基本工资","description":"工资","reply":"已记：工资-基本工资 8000元"}\n' +
+        '用户："股票赚了2000" → {"is_transaction":true,"type":"income","amount":2000,"category":"投资","sub_category":"股票","description":"股票收益","reply":"已记：投资-股票 2000元"}\n' +
+        '用户："你好" → {"is_transaction":false,"type":"","amount":0,"category":"","sub_category":"","description":"","reply":"你好，请告诉我你的收支情况"}\n\n' +
+        '注意：amount必须是数字类型，不要加引号或单位。'
+
       var requestData = {
         model: 'hy3-preview',
         messages: [
-          {
-            role: 'system',
-            content: '你是简洁的AI助手，每次回答不超过50个字。'
-          },
+          { role: 'system', content: systemPrompt },
           { role: 'user', content: text }
         ]
       }
-      console.log('[HY3] 请求数据:', JSON.stringify(requestData))
 
-      // 超时检测
       var timeoutFlag = true
       var timeoutTimer = setTimeout(function () {
         if (timeoutFlag) {
-          console.error('[HY3] 超时: 20秒无响应')
-          that.setData({
-            ['messages[' + assistantIndex + '].content']: 'AI 回复超时',
-            loading: false
-          })
+          that.setData({ loading: false })
+          wx.showToast({ title: 'AI 响应超时', icon: 'none' })
         }
       }, 20000)
 
       ;(async function () {
         try {
-          console.log('[HY3] await streamText...')
           var res = await model.streamText({ data: requestData })
-          console.log('[HY3] 返回, 耗时:', Date.now() - startTime, 'ms')
-
           timeoutFlag = false
           clearTimeout(timeoutTimer)
 
-          console.log('[HY3] 开始遍历 textStream...')
           for await (var chunk of res.textStream) {
-            chunkCount++
-            console.log('[HY3] chunk #' + chunkCount + ':', JSON.stringify(chunk))
             answer += chunk
-            that.setData({
-              ['messages[' + assistantIndex + '].content']: answer,
-              scrollToId: 'msg-' + assistantIndex
-            })
           }
-          console.log('[HY3] 完成, 共', chunkCount, '个chunk, 回答:', answer)
-          console.log('[HY3] 总耗时:', Date.now() - startTime, 'ms')
-          that.setData({ loading: false })
+
+          console.log('[HY3] 完成, 回答:', answer)
+          that.handleAIReply(answer)
         } catch (err) {
           timeoutFlag = false
           clearTimeout(timeoutTimer)
           console.error('[HY3] 错误:', err)
-          that.setData({
-            ['messages[' + assistantIndex + '].content']: 'AI 回复出错：' + (err.message || '未知错误'),
-            loading: false
-          })
+          that.setData({ loading: false })
+          wx.showToast({ title: 'AI 分析失败', icon: 'none' })
         }
       })()
     } catch (e) {
-      console.error('[HY3] 同步异常:', e)
-      this.setData({
-        ['messages[' + assistantIndex + '].content']: 'AI 调用异常：' + (e.message || ''),
-        loading: false
+      console.error('[HY3] 异常:', e)
+      this.setData({ loading: false })
+    }
+  },
+
+  // ========== 解析 AI 回复，记账 ==========
+
+  handleAIReply: function (answer) {
+    this.setData({ loading: false })
+
+    // 尝试从回答中提取 JSON
+    var jsonStr = ''
+    try {
+      // 找到第一个 { 和最后一个 }
+      var start = answer.indexOf('{')
+      var end = answer.lastIndexOf('}')
+      if (start >= 0 && end > start) {
+        jsonStr = answer.substring(start, end + 1)
+        var result = JSON.parse(jsonStr)
+        console.log('[记账] 解析结果:', result)
+
+        if (result.is_transaction === true && result.amount > 0) {
+          // 添加记账记录
+          var record = {
+            id: Date.now(),
+            type: result.type || 'expense',
+            amount: result.amount,
+            category: result.category || '其他',
+            subCategory: result.sub_category || '',
+            description: result.description || '',
+            time: this.formatTime(new Date()),
+            raw: this.data.asrText
+          }
+
+          var records = [record].concat(this.data.records)
+          this.setData({ records: records })
+          this.saveRecords()
+          this.updateStats(records)
+          this.filterRecords()
+
+          wx.showToast({ title: '记账成功', icon: 'success' })
+        }
+      }
+    } catch (e) {
+      console.error('[记账] JSON 解析失败:', e, '| 原文:', jsonStr || answer)
+    }
+  },
+
+  // ========== 记账数据管理 ==========
+
+  loadRecords: function () {
+    var that = this
+    wx.getStorage({
+      key: 'account_records',
+      success: function (res) {
+        var records = res.data || []
+        that.setData({ records: records })
+        that.updateStats(records)
+        that.filterRecords()
+      }
+    })
+  },
+
+  saveRecords: function () {
+    wx.setStorage({
+      key: 'account_records',
+      data: this.data.records
+    })
+  },
+
+  updateStats: function (records) {
+    var totalIncome = 0
+    var totalExpense = 0
+    var categoryMap = {}
+
+    for (var i = 0; i < records.length; i++) {
+      var r = records[i]
+      if (r.type === 'income') {
+        totalIncome += r.amount
+      } else {
+        totalExpense += r.amount
+      }
+
+      // 按大类聚合
+      var key = r.type + '_' + r.category
+      if (!categoryMap[key]) {
+        categoryMap[key] = {
+          type: r.type,
+          category: r.category,
+          amount: 0,
+          count: 0,
+          subCategories: {}  // 细类明细
+        }
+      }
+      categoryMap[key].amount += r.amount
+      categoryMap[key].count++
+
+      // 记录细类
+      var subCat = r.subCategory || '其他'
+      if (!categoryMap[key].subCategories[subCat]) {
+        categoryMap[key].subCategories[subCat] = 0
+      }
+      categoryMap[key].subCategories[subCat] += r.amount
+    }
+
+    var categoryStats = []
+    for (var k in categoryMap) {
+      // 把 subCategories 对象转成数组方便展示
+      var stat = categoryMap[k]
+      var subList = []
+      for (var sk in stat.subCategories) {
+        subList.push({ name: sk, amount: stat.subCategories[sk] })
+      }
+      subList.sort(function (a, b) { return b.amount - a.amount })
+      stat.subList = subList
+      categoryStats.push(stat)
+    }
+    // 按金额排序
+    categoryStats.sort(function (a, b) { return b.amount - a.amount })
+
+    this.setData({
+      totalIncome: totalIncome,
+      totalExpense: totalExpense,
+      balance: totalIncome - totalExpense,
+      categoryStats: categoryStats
+    })
+
+    // 生成饼状图数据（只展示支出分类）
+    this.buildPieData(categoryStats, totalExpense)
+  },
+
+  // 大类固定配色（马卡龙色系）
+  categoryColors: {
+    '餐饮': '#fda4af',
+    '交通': '#7dd3fc',
+    '购物': '#fcd34d',
+    '服饰': '#f9a8d4',
+    '娱乐': '#c4b5fd',
+    '住房': '#86efac',
+    '医疗': '#a5f3fc',
+    '教育': '#ddd6fe',
+    '生活': '#fdba74',
+    '社交': '#fecaca',
+    '旅行': '#bae6fd',
+    '运动': '#bbf7d0',
+    '其他支出': '#e2e8f0',
+    '工资': '#86efac',
+    '奖金': '#7dd3fc',
+    '兼职': '#fcd34d',
+    '投资': '#c4b5fd',
+    '红包': '#fda4af',
+    '退款': '#a5f3fc',
+    '其他收入': '#e2e8f0'
+  },
+  // 备用颜色
+  fallbackColors: ['#fda4af', '#fcd34d', '#86efac', '#7dd3fc', '#c4b5fd', '#f9a8d4', '#fdba74', '#a5f3fc', '#ddd6fe', '#fecaca'],
+
+  buildPieData: function (categoryStats, totalExpense) {
+    var colorMap = this.categoryColors
+    var fallback = this.fallbackColors
+    var pieData = []
+    var expenseStats = categoryStats.filter(function (s) { return s.type === 'expense' })
+
+    for (var i = 0; i < expenseStats.length; i++) {
+      var s = expenseStats[i]
+      var percent = totalExpense > 0 ? Math.round((s.amount / totalExpense) * 100) : 0
+      var color = colorMap[s.category] || fallback[i % fallback.length]
+
+      // 构造细类描述
+      var subText = ''
+      if (s.subList && s.subList.length > 0) {
+        var names = s.subList.map(function (sub) { return sub.name }).join('、')
+        subText = ' (' + names + ')'
+      }
+
+      pieData.push({
+        name: s.category,
+        value: s.amount,
+        percent: percent,
+        color: color,
+        subText: subText
       })
     }
+
+    this.setData({ pieData: pieData })
+    // 延迟绘制，等 canvas DOM 渲染完成
+    var that = this
+    setTimeout(function () {
+      that.drawPieChart()
+    }, 300)
+  },
+
+  drawPieChart: function () {
+    var pieData = this.data.pieData
+    if (!pieData || pieData.length === 0) {
+      console.log('[饼图] 无数据，跳过绘制')
+      return
+    }
+
+    console.log('[饼图] 开始绘制, 数据:', JSON.stringify(pieData))
+
+    var query = wx.createSelectorQuery()
+    query.select('#pieChart')
+      .fields({ node: true, size: true })
+      .exec(function (res) {
+        console.log('[饼图] selectorQuery 结果:', JSON.stringify(res))
+
+        if (!res || !res[0]) {
+          console.error('[饼图] 未找到 canvas 节点，可能 DOM 未渲染')
+          return
+        }
+
+        if (!res[0].node) {
+          console.error('[饼图] canvas node 为空')
+          return
+        }
+
+        if (!res[0].width || !res[0].height) {
+          console.error('[饼图] canvas 尺寸为 0, width:', res[0].width, 'height:', res[0].height)
+          return
+        }
+
+        var canvas = res[0].node
+        var ctx = canvas.getContext('2d')
+        var dpr = wx.getSystemInfoSync().pixelRatio
+        canvas.width = res[0].width * dpr
+        canvas.height = res[0].height * dpr
+        ctx.scale(dpr, dpr)
+
+        var width = res[0].width
+        var height = res[0].height
+        var cx = width / 2
+        var cy = height / 2
+        var radius = Math.min(width, height) / 2 - 8
+
+        var total = 0
+        for (var i = 0; i < pieData.length; i++) {
+          total += pieData[i].value
+        }
+        if (total === 0) {
+          console.error('[饼图] total 为 0')
+          return
+        }
+
+        console.log('[饼图] canvas 尺寸:', width, 'x', height, '| radius:', radius, '| total:', total)
+
+        var startAngle = -Math.PI / 2
+
+        for (var j = 0; j < pieData.length; j++) {
+          var item = pieData[j]
+          var angle = (item.value / total) * Math.PI * 2
+
+          ctx.beginPath()
+          ctx.moveTo(cx, cy)
+          ctx.arc(cx, cy, radius, startAngle, startAngle + angle)
+          ctx.closePath()
+          ctx.fillStyle = item.color
+          ctx.fill()
+
+          startAngle += angle
+        }
+
+        // 中心圆（甜甜圈效果）
+        ctx.beginPath()
+        ctx.arc(cx, cy, radius * 0.5, 0, Math.PI * 2)
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.85)'
+        ctx.fill()
+
+        // 中心文字
+        ctx.fillStyle = '#475569'
+        ctx.font = '12px sans-serif'
+        ctx.textAlign = 'center'
+        ctx.textBaseline = 'middle'
+        ctx.fillText('支出', cx, cy - 8)
+        ctx.font = 'bold 14px sans-serif'
+        ctx.fillText('¥' + total, cx, cy + 10)
+
+        console.log('[饼图] 绘制完成')
+      })
+  },
+
+  filterRecords: function () {
+    var tab = this.data.activeTab
+    var records = this.data.records
+    var filtered = records
+
+    if (tab === 'expense') {
+      filtered = records.filter(function (r) { return r.type === 'expense' })
+    } else if (tab === 'income') {
+      filtered = records.filter(function (r) { return r.type === 'income' })
+    }
+
+    this.setData({ filteredRecords: filtered })
+  },
+
+  onTabChange: function (e) {
+    var tab = e.currentTarget.dataset.tab
+    this.setData({ activeTab: tab })
+    this.filterRecords()
+  },
+
+  onDeleteRecord: function (e) {
+    var id = e.currentTarget.dataset.id
+    var that = this
+    wx.showModal({
+      title: '提示',
+      content: '确定删除这条记录？',
+      success: function (res) {
+        if (res.confirm) {
+          var records = that.data.records.filter(function (r) { return r.id !== id })
+          that.setData({ records: records })
+          that.saveRecords()
+          that.updateStats(records)
+          that.filterRecords()
+        }
+      }
+    })
+  },
+
+  formatTime: function (date) {
+    var y = date.getFullYear()
+    var m = (date.getMonth() + 1).toString().padStart(2, '0')
+    var d = date.getDate().toString().padStart(2, '0')
+    var h = date.getHours().toString().padStart(2, '0')
+    var min = date.getMinutes().toString().padStart(2, '0')
+    return y + '-' + m + '-' + d + ' ' + h + ':' + min
   },
 
   // ========== 语音播放 ==========
 
-  // 音频播放管理器
-  audioContext: null,
-  // 当前正在播放的消息索引
-  playingIndex: -1,
-
-  onPlayAudio: function (e) {
-    var index = e.currentTarget.dataset.index
-    var msg = this.data.messages[index]
-    if (!msg || !msg.audioPath) {
-      console.warn('[播放] 没有可播放的音频, index:', index)
+  onPlayAudio: function () {
+    if (!this.localAudioPath) {
+      wx.showToast({ title: '没有录音', icon: 'none' })
       return
     }
 
-    console.log('[播放] 点击播放, index:', index, ', 本地路径:', msg.audioPath)
-
-    // 如果当前正在播放这条，则停止
-    if (this.playingIndex === index) {
-      console.log('[播放] 当前正在播放，停止播放')
-      this.stopAudio()
-      return
-    }
-
-    // 先停止之前的播放
-    if (this.playingIndex >= 0) {
-      this.stopAudio()
-    }
-
-    // 创建音频上下文（每次新建确保干净）
     var that = this
-    this.audioContext = wx.createInnerAudioContext()
-    this.audioContext.src = msg.audioPath
-    this.playingIndex = index
-
-    // 标记当前消息为播放中
-    this.setData({
-      ['messages[' + index + '].playing']: true
-    })
-
-    this.audioContext.onPlay(function () {
-      console.log('[播放] 开始播放')
-    })
-
-    this.audioContext.onEnded(function () {
-      console.log('[播放] 播放结束')
-      that.resetPlayState()
-    })
-
-    this.audioContext.onError(function (err) {
-      console.error('[播放] 播放错误:', err)
-      that.resetPlayState()
-      wx.showToast({ title: '播放失败', icon: 'none' })
-    })
-
-    this.audioContext.onStop(function () {
-      console.log('[播放] 停止播放')
-    })
-
-    this.audioContext.play()
-  },
-
-  stopAudio: function () {
     if (this.audioContext) {
       this.audioContext.stop()
       this.audioContext.destroy()
       this.audioContext = null
+      this.setData({ playingIndex: -1 })
+      return
     }
-    this.resetPlayState()
-  },
 
-  resetPlayState: function () {
-    if (this.playingIndex >= 0) {
-      this.setData({
-        ['messages[' + this.playingIndex + '].playing']: false
-      })
-      this.playingIndex = -1
-    }
+    this.audioContext = wx.createInnerAudioContext()
+    this.audioContext.src = this.localAudioPath
+    this.setData({ playingIndex: 0 })
+
+    this.audioContext.onEnded(function () {
+      that.setData({ playingIndex: -1 })
+    })
+    this.audioContext.onError(function () {
+      that.setData({ playingIndex: -1 })
+      wx.showToast({ title: '播放失败', icon: 'none' })
+    })
+
+    this.audioContext.play()
   }
 })
