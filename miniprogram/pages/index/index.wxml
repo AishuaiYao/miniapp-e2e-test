@@ -1,15 +1,57 @@
 <view class="page">
-  <view class="msg-list">
-    <view wx:for="{{messages}}" wx:key="index" class="msg {{item.role}}">
-      <view class="bubble">{{item.content}}</view>
+  <!-- 消息列表 -->
+  <scroll-view class="msg-list" scroll-y="true" scroll-into-view="{{scrollToId}}">
+    <view wx:for="{{messages}}" wx:key="index" id="msg-{{index}}" class="msg {{item.role}}">
+      <!-- ASR 识别结果 -->
+      <view wx:if="{{item.role === 'user'}}" class="bubble user-bubble">
+        <view class="bubble-label">🎤 识别结果</view>
+        <view class="bubble-content">{{item.content}}</view>
+        <!-- 播放原语音按钮 -->
+        <view
+          wx:if="{{item.audioPath}}"
+          class="play-btn {{item.playing ? 'playing' : ''}}"
+          catchtap="onPlayAudio"
+          data-index="{{index}}"
+        >
+          <view class="play-icon {{item.playing ? 'stop-icon' : ''}}"></view>
+          <text class="play-text">{{item.playing ? '停止' : '播放原语音'}}</text>
+        </view>
+      </view>
+      <!-- HY3 回答 -->
+      <view wx:if="{{item.role === 'assistant'}}" class="bubble assistant-bubble">
+        <view class="bubble-label">💬 AI 回答</view>
+        <view class="bubble-content">{{item.content}}</view>
+      </view>
     </view>
-  </view>
+  </scroll-view>
 
-  <view class="input-bar">
-    <input class="input" value="{{inputText}}" bindinput="onInput"
-      bindconfirm="onSend" confirm-type="send" placeholder="说点什么..." />
-    <button class="btn" bindtap="onSend" disabled="{{loading || !inputText}}">
-      {{loading ? '...' : '发送'}}
-    </button>
+  <!-- 底部录音区域 -->
+  <view class="record-bar">
+    <!-- 录音状态提示 -->
+    <view class="record-status" wx:if="{{recording}}">
+      <view class="recording-dot"></view>
+      <text class="record-status-text">{{recordStatusText}}</text>
+    </view>
+    <view class="record-status" wx:elif="{{loading}}">
+      <text class="record-status-text">{{loadingText}}</text>
+    </view>
+
+    <!-- 大号录音按钮 -->
+    <view
+      class="record-btn {{recording ? 'recording' : ''}} {{loading ? 'disabled' : ''}}"
+      bindtouchstart="onRecordStart"
+      bindtouchend="onRecordEnd"
+      bindtouchcancel="onRecordEnd"
+    >
+      <view class="record-btn-icon">
+        <view class="mic-icon"></view>
+      </view>
+      <text class="record-btn-text">{{recording ? '松开识别' : (loading ? '处理中...' : '按住说话')}}</text>
+    </view>
+
+    <!-- 录音时长 -->
+    <view class="record-duration" wx:if="{{recording}}">
+      <text>{{recordDuration}}s</text>
+    </view>
   </view>
 </view>
