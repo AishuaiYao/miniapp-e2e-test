@@ -1,0 +1,15 @@
+<view class="page">
+  <view class="msg-list">
+    <view wx:for="{{messages}}" wx:key="index" class="msg {{item.role}}">
+      <view class="bubble">{{item.content}}</view>
+    </view>
+  </view>
+
+  <view class="input-bar">
+    <input class="input" value="{{inputText}}" bindinput="onInput"
+      bindconfirm="onSend" confirm-type="send" placeholder="说点什么..." />
+    <button class="btn" bindtap="onSend" disabled="{{loading || !inputText}}">
+      {{loading ? '...' : '发送'}}
+    </button>
+  </view>
+</view>
