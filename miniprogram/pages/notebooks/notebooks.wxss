@@ -1,0 +1,357 @@
+/* 账本管理 - 马卡龙毛玻璃风格 */
+
+.page-container {
+  position: relative;
+  min-height: 100vh;
+  padding: 0 24rpx;
+  padding-bottom: 32rpx;
+  box-sizing: border-box;
+}
+
+.bg-gradient {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: linear-gradient(135deg, #e0f2fe 0%, #f0f9ff 30%, #fef3f2 70%, #fce7f3 100%);
+  z-index: 0;
+}
+
+/* ========== 导航栏 ========== */
+
+.nav-bar {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  padding: 0 24rpx;
+}
+
+.nav-bar-left {
+  width: 80rpx;
+  height: 80rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.hamburger {
+  width: 44rpx;
+  height: 36rpx;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 8rpx;
+}
+
+.hamburger-line {
+  height: 4rpx;
+  background: #475569;
+  border-radius: 2rpx;
+}
+
+.nav-bar-title {
+  flex: 1;
+  text-align: center;
+  font-size: 34rpx;
+  font-weight: 600;
+  color: #475569;
+}
+
+.nav-bar-right {
+  width: 80rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.nav-add-btn {
+  width: 56rpx;
+  height: 56rpx;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #7dd3fc, #38bdf8);
+  color: #fff;
+  font-size: 40rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4rpx 12rpx rgba(56, 189, 248, 0.3);
+}
+
+.nav-add-btn:active {
+  transform: scale(0.9);
+}
+
+/* ========== 账本列表 ========== */
+
+.notebook-list {
+  position: relative;
+  z-index: 1;
+  margin-top: 16rpx;
+}
+
+.notebook-card {
+  display: flex;
+  align-items: center;
+  padding: 28rpx 24rpx;
+  margin-bottom: 16rpx;
+  border-radius: 24rpx;
+  background: rgba(255, 255, 255, 0.55);
+  backdrop-filter: blur(20rpx);
+  -webkit-backdrop-filter: blur(20rpx);
+  border: 1rpx solid rgba(255, 255, 255, 0.7);
+  box-shadow: 0 4rpx 24rpx rgba(135, 206, 235, 0.15);
+  transition: all 0.2s;
+}
+
+.notebook-card.active {
+  border: 2rpx solid #38bdf8;
+  background: rgba(186, 230, 253, 0.4);
+}
+
+.notebook-card:active {
+  transform: scale(0.98);
+}
+
+.notebook-icon {
+  width: 80rpx;
+  height: 80rpx;
+  border-radius: 50%;
+  background: rgba(186, 230, 253, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 40rpx;
+  margin-right: 20rpx;
+  flex-shrink: 0;
+}
+
+.notebook-info {
+  flex: 1;
+  overflow: hidden;
+}
+
+.notebook-name {
+  font-size: 32rpx;
+  font-weight: 600;
+  color: #334155;
+}
+
+.notebook-desc {
+  font-size: 24rpx;
+  color: #94a3b8;
+  margin-top: 6rpx;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.notebook-time {
+  font-size: 22rpx;
+  color: #cbd5e1;
+  margin-top: 4rpx;
+}
+
+.notebook-status {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 12rpx;
+}
+
+.notebook-current-tag {
+  font-size: 22rpx;
+  color: #fff;
+  background: linear-gradient(135deg, #7dd3fc, #38bdf8);
+  padding: 4rpx 16rpx;
+  border-radius: 20rpx;
+}
+
+.notebook-actions {
+  display: flex;
+  gap: 12rpx;
+}
+
+.notebook-del {
+  font-size: 22rpx;
+  color: #fb7185;
+  padding: 4rpx 16rpx;
+  border-radius: 20rpx;
+  background: rgba(251, 113, 133, 0.1);
+}
+
+.notebook-del:active {
+  background: rgba(251, 113, 133, 0.2);
+}
+
+/* ========== 空状态 ========== */
+
+.empty-section {
+  position: relative;
+  z-index: 1;
+  text-align: center;
+  padding: 100rpx 0;
+}
+
+.empty-illustration {
+  font-size: 80rpx;
+  margin-bottom: 20rpx;
+}
+
+.empty-text {
+  display: block;
+  font-size: 30rpx;
+  color: #64748b;
+  margin-bottom: 12rpx;
+}
+
+.empty-hint {
+  display: block;
+  font-size: 24rpx;
+  color: #94a3b8;
+  margin-bottom: 40rpx;
+}
+
+.btn-create-first {
+  width: 320rpx;
+  height: 80rpx;
+  background: linear-gradient(135deg, #7dd3fc, #38bdf8);
+  color: #fff;
+  font-size: 30rpx;
+  font-weight: 600;
+  border-radius: 50rpx;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4rpx 16rpx rgba(56, 189, 248, 0.3);
+}
+
+.btn-create-first::after {
+  border: none;
+}
+
+.btn-create-first:active {
+  transform: scale(0.95);
+}
+
+/* ========== 创建弹窗 ========== */
+
+.create-mask {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 999;
+  animation: maskIn 0.3s ease;
+}
+
+@keyframes maskIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.create-popup {
+  width: 580rpx;
+  background: #fff;
+  border-radius: 32rpx;
+  padding: 48rpx 40rpx 40rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  animation: popupIn 0.35s ease;
+}
+
+@keyframes popupIn {
+  from { transform: scale(0.85); opacity: 0; }
+  to   { transform: scale(1); opacity: 1; }
+}
+
+.create-title {
+  font-size: 36rpx;
+  font-weight: 700;
+  color: #334155;
+  margin-bottom: 8rpx;
+}
+
+.create-desc {
+  font-size: 26rpx;
+  color: #94a3b8;
+  margin-bottom: 36rpx;
+}
+
+.input-wrap {
+  width: 100%;
+  margin-bottom: 24rpx;
+}
+
+.create-input {
+  width: 100%;
+  height: 88rpx;
+  background: #f0f9ff;
+  border-radius: 24rpx;
+  padding: 0 28rpx;
+  font-size: 30rpx;
+  color: #334155;
+  box-sizing: border-box;
+}
+
+.create-input::placeholder {
+  color: #cbd5e1;
+}
+
+.create-textarea {
+  width: 100%;
+  height: 120rpx;
+  background: #f0f9ff;
+  border-radius: 24rpx;
+  padding: 20rpx 28rpx;
+  font-size: 28rpx;
+  color: #334155;
+  box-sizing: border-box;
+}
+
+.create-textarea::placeholder {
+  color: #cbd5e1;
+}
+
+.btn-create {
+  width: 100%;
+  height: 88rpx;
+  background: linear-gradient(135deg, #7dd3fc, #38bdf8);
+  color: #fff;
+  font-size: 32rpx;
+  font-weight: 600;
+  border-radius: 50rpx;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4rpx 20rpx rgba(56, 189, 248, 0.3);
+  margin-bottom: 20rpx;
+}
+
+.btn-create::after {
+  border: none;
+}
+
+.btn-create:active {
+  transform: scale(0.95);
+}
+
+.btn-create[disabled] {
+  opacity: 0.7;
+}
+
+.create-cancel {
+  font-size: 26rpx;
+  color: #94a3b8;
+  padding: 8rpx 16rpx;
+}
+
+.create-cancel:active {
+  color: #38bdf8;
+}

@@ -1,0 +1,99 @@
+<!-- 账本管理页 -->
+<view class="page-container">
+  <view class="bg-gradient"></view>
+
+  <!-- 自定义导航栏 -->
+  <view class="nav-bar" style="padding-top: {{statusBarHeight}}px; height: {{navTotalHeight}}px;">
+    <view class="nav-bar-left" bind:tap="openDrawer">
+      <view class="hamburger">
+        <view class="hamburger-line"></view>
+        <view class="hamburger-line"></view>
+        <view class="hamburger-line"></view>
+      </view>
+    </view>
+    <view class="nav-bar-title">我的账本</view>
+    <view class="nav-bar-right">
+      <view class="nav-add-btn" bind:tap="showCreatePopup">+</view>
+    </view>
+  </view>
+
+  <!-- 账本列表 -->
+  <view class="notebook-list" wx:if="{{notebooks.length > 0}}">
+    <view
+      class="notebook-card {{currentNotebookId === item._id ? 'active' : ''}}"
+      wx:for="{{notebooks}}"
+      wx:key="_id"
+      bind:tap="selectNotebook"
+      data-id="{{item._id}}"
+      data-name="{{item.name}}"
+    >
+      <view class="notebook-icon">📒</view>
+      <view class="notebook-info">
+        <view class="notebook-name">{{item.name}}</view>
+        <view class="notebook-desc">{{item.description || '暂无描述'}}</view>
+        <view class="notebook-time">创建于 {{item.timeStr}}</view>
+      </view>
+      <view class="notebook-status">
+        <view class="notebook-current-tag" wx:if="{{currentNotebookId === item._id}}">当前</view>
+        <view class="notebook-actions">
+          <view class="notebook-del" catch:tap="onDeleteNotebook" data-id="{{item._id}}" data-name="{{item.name}}">删除</view>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 空状态 -->
+  <view class="empty-section" wx:if="{{notebooks.length === 0}}">
+    <view class="empty-illustration">📒</view>
+    <text class="empty-text">还没有账本</text>
+    <text class="empty-hint">创建你的第一个账本开始记账吧</text>
+    <button class="btn-create-first" bind:tap="showCreatePopup">创建账本</button>
+  </view>
+
+  <!-- 创建账本弹窗 -->
+  <view class="create-mask" wx:if="{{showCreate}}" catchtouchmove="{{true}}">
+    <view class="create-popup">
+      <text class="create-title">创建账本</text>
+      <text class="create-desc">给你的账本起个名字</text>
+
+      <view class="input-wrap">
+        <input
+          class="create-input"
+          placeholder="如：日常开销、旅行账本"
+          value="{{newName}}"
+          bindinput="onNameInput"
+          maxlength="20"
+        />
+      </view>
+
+      <view class="input-wrap">
+        <textarea
+          class="create-textarea"
+          placeholder="描述（选填）"
+          value="{{newDesc}}"
+          bindinput="onDescInput"
+          maxlength="50"
+        ></textarea>
+      </view>
+
+      <button
+        class="btn-create"
+        bind:tap="handleCreate"
+        disabled="{{creating}}"
+        loading="{{creating}}"
+      >
+        {{creating ? '创建中...' : '创建'}}
+      </button>
+
+      <view class="create-cancel" bind:tap="closeCreate">取消</view>
+    </view>
+  </view>
+
+  <!-- 导航抽屉 -->
+  <nav-drawer
+    visible="{{drawerVisible}}"
+    currentPath="/pages/notebooks/notebooks"
+    bind:close="closeDrawer"
+    bind:navigate="onNavigate"
+  ></nav-drawer>
+</view>

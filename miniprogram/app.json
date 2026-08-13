@@ -1,10 +1,12 @@
 {
   "pages": [
-    "pages/index/index"
+    "pages/index/index",
+    "pages/notebooks/notebooks",
+    "pages/account/account"
   ],
   "window": {
-    "navigationBarTitleText": "语音 AI 对话",
-    "navigationBarBackgroundColor": "#ffffff",
+    "navigationBarTitleText": "智能语音记账",
+    "navigationBarBackgroundColor": "#e0f2fe",
     "navigationBarTextStyle": "black"
   },
   "permission": {
@@ -12,5 +14,6 @@
       "desc": "用于语音识别，将你说的话转成文字"
     }
   },
-  "requiredPrivateInfos": []
+  "requiredPrivateInfos": [],
+  "usingComponents": {}
 }

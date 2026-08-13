@@ -2,6 +2,12 @@ var app = getApp()
 
 Page({
   data: {
+    // 导航栏
+    statusBarHeight: 20,
+    navBarHeight: 44,
+    navTotalHeight: 64,
+    drawerVisible: false,
+
     // 录音状态
     recording: false,
     loading: false,
@@ -24,19 +30,29 @@ Page({
     // 分类统计
     categoryStats: [],
     activeTab: 'all', // all / expense / income
-    filteredRecords: []
+    filteredRecords: [],
+
+    // 当前账本
+    currentNotebookId: '',
+    currentNotebookName: '',
+    hasNotebook: false
   },
 
   // 录音管理器
   recorderManager: null,
   durationTimer: null,
   recordStartTime: 0,
+  // 权限缓存
+  recordAuthed: null,
   // 本地录音路径（本次）
   localAudioPath: '',
   audioContext: null,
   playingIndex: -1,
 
   onLoad: function () {
+    // 初始化导航栏尺寸
+    this.setData(app.getNavBarLayout())
+
     this.recorderManager = wx.getRecorderManager()
     var that = this
 
@@ -57,6 +73,35 @@ Page({
 
     // 加载本地存储的记账记录
     this.loadRecords()
+
+    // 预检查录音权限
+    this.checkRecordAuth()
+  },
+
+  onShow: function () {
+    // 每次显示页面时刷新当前账本
+    var notebookId = app.getCurrentNotebookId()
+    var notebookName = app.getCurrentNotebookName()
+    this.setData({
+      currentNotebookId: notebookId,
+      currentNotebookName: notebookName,
+      hasNotebook: !!notebookId
+    })
+
+    // 重新加载记录（可能从其他页面切换回来）
+    if (notebookId) {
+      this.loadRecords()
+    }
+  },
+
+  checkRecordAuth: function () {
+    var that = this
+    wx.getSetting({
+      success: function (res) {
+        that.recordAuthed = !!res.authSetting['scope.record']
+        console.log('[录音] 权限预检查:', that.recordAuthed)
+      }
+    })
   },
 
   // ========== 录音 ==========
@@ -64,15 +109,42 @@ Page({
   onRecordStart: function () {
     if (this.data.loading || this.data.recording) return
 
+    // 检查是否已有账本
+    if (!this.data.currentNotebookId) {
+      wx.showModal({
+        title: '请先创建账本',
+        content: '记账前需要先创建一个账本，是否现在创建？',
+        confirmText: '去创建',
+        confirmColor: '#38bdf8',
+        success: function (res) {
+          if (res.confirm) {
+            wx.navigateTo({ url: '/pages/notebooks/notebooks' })
+          }
+        }
+      })
+      return
+    }
+
+    // 已授权，直接开始录音（零延迟）
+    if (this.recordAuthed === true) {
+      this.startRecording()
+      return
+    }
+
+    // 权限未知或未授权，走异步检查
     var that = this
     wx.getSetting({
       success: function (res) {
         if (res.authSetting['scope.record']) {
+          that.recordAuthed = true
           that.startRecording()
         } else {
           wx.authorize({
             scope: 'scope.record',
-            success: function () { that.startRecording() },
+            success: function () {
+              that.recordAuthed = true
+              that.startRecording()
+            },
             fail: function () {
               wx.showModal({
                 title: '提示',
@@ -126,8 +198,8 @@ Page({
       this.durationTimer = null
     }
 
-    var duration = Math.floor((Date.now() - this.recordStartTime) / 1000)
-    if (duration < 1) {
+    var duration = Date.now() - this.recordStartTime
+    if (duration < 500) {
       this.setData({ recording: false })
       wx.showToast({ title: '录音太短，请长按说话', icon: 'none' })
       return
@@ -333,7 +405,8 @@ Page({
             subCategory: result.sub_category || '',
             description: result.description || '',
             time: this.formatTime(new Date()),
-            raw: this.data.asrText
+            raw: this.data.asrText,
+            notebookId: this.data.currentNotebookId
           }
 
           var records = [record].concat(this.data.records)
@@ -354,10 +427,15 @@ Page({
 
   loadRecords: function () {
     var that = this
+    var notebookId = this.data.currentNotebookId
     wx.getStorage({
       key: 'account_records',
       success: function (res) {
-        var records = res.data || []
+        var allRecords = res.data || []
+        // 只显示当前账本的记录
+        var records = notebookId ? allRecords.filter(function (r) {
+          return r.notebookId === notebookId
+        }) : allRecords
         that.setData({ records: records })
         that.updateStats(records)
         that.filterRecords()
@@ -366,9 +444,31 @@ Page({
   },
 
   saveRecords: function () {
-    wx.setStorage({
+    var that = this
+    var notebookId = this.data.currentNotebookId
+    // 先读取全部记录，替换当前账本的记录，再保存
+    wx.getStorage({
       key: 'account_records',
-      data: this.data.records
+      success: function (res) {
+        var allRecords = res.data || []
+        // 移除当前账本的旧记录
+        var otherRecords = allRecords.filter(function (r) {
+          return r.notebookId !== notebookId
+        })
+        // 合并当前账本的新记录
+        var merged = otherRecords.concat(that.data.records)
+        wx.setStorage({
+          key: 'account_records',
+          data: merged
+        })
+      },
+      fail: function () {
+        // 没有历史记录，直接保存
+        wx.setStorage({
+          key: 'account_records',
+          data: that.data.records
+        })
+      }
     })
   },
 
@@ -660,5 +760,25 @@ Page({
     })
 
     this.audioContext.play()
+  },
+
+  // ========== 导航抽屉 ==========
+
+  openDrawer: function () {
+    this.setData({ drawerVisible: true })
+  },
+
+  closeDrawer: function () {
+    this.setData({ drawerVisible: false })
+  },
+
+  onNavigate: function (e) {
+    var path = e.detail.path
+    if (path === '/pages/index/index') return
+    wx.redirectTo({ url: path })
+  },
+
+  goToNotebooks: function () {
+    wx.navigateTo({ url: '/pages/notebooks/notebooks' })
   }
 })

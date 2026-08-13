@@ -1,6 +1,12 @@
 App({
   globalData: {
-    aliyunApiKey: null
+    aliyunApiKey: null,
+    userInfo: null,
+    currentNotebookId: '',
+    currentNotebookName: '',
+    statusBarHeight: 0,
+    navBarHeight: 0,
+    navTotalHeight: 0
   },
 
   onLaunch: function () {
@@ -8,9 +14,109 @@ App({
       env: 'cloud1-d7g1myj7ab00b5661'
     })
 
-    // 通过云函数获取阿里云 API Key（云函数有管理员权限，能正常下载 config.json）
+    // 计算导航栏尺寸
+    this.initNavBar()
+
+    // 加载缓存的用户信息
+    this.loadUserInfo()
+
+    // 加载当前账本
+    this.loadCurrentNotebook()
+
+    // 通过云函数获取阿里云 API Key
     this.loadAliyunApiKey()
   },
+
+  // ========== 导航栏尺寸 ==========
+
+  initNavBar: function () {
+    try {
+      var windowInfo = wx.getWindowInfo ? wx.getWindowInfo() : wx.getSystemInfoSync()
+      var menuButton = wx.getMenuButtonBoundingClientRect ? wx.getMenuButtonBoundingClientRect() : null
+
+      var statusBarHeight = windowInfo.statusBarHeight || 20
+      var navBarHeight = 44
+
+      if (menuButton && menuButton.height) {
+        navBarHeight = (menuButton.top - statusBarHeight) * 2 + menuButton.height
+      }
+
+      this.globalData.statusBarHeight = statusBarHeight
+      this.globalData.navBarHeight = navBarHeight
+      this.globalData.navTotalHeight = statusBarHeight + navBarHeight
+    } catch (e) {
+      console.error('初始化导航栏尺寸失败:', e)
+      this.globalData.statusBarHeight = 20
+      this.globalData.navBarHeight = 44
+      this.globalData.navTotalHeight = 64
+    }
+  },
+
+  getNavBarLayout: function () {
+    if (!this.globalData.navTotalHeight) {
+      this.initNavBar()
+    }
+    return {
+      statusBarHeight: this.globalData.statusBarHeight,
+      navBarHeight: this.globalData.navBarHeight,
+      navTotalHeight: this.globalData.navTotalHeight
+    }
+  },
+
+  // ========== 用户信息管理 ==========
+
+  loadUserInfo: function () {
+    var userInfo = wx.getStorageSync('userInfo')
+    if (userInfo) {
+      this.globalData.userInfo = userInfo
+    }
+  },
+
+  setUserInfo: function (userInfo) {
+    this.globalData.userInfo = userInfo
+    if (userInfo) {
+      wx.setStorageSync('userInfo', userInfo)
+    } else {
+      wx.removeStorageSync('userInfo')
+    }
+  },
+
+  getUserInfo: function () {
+    return this.globalData.userInfo
+  },
+
+  // ========== 账本管理 ==========
+
+  loadCurrentNotebook: function () {
+    var id = wx.getStorageSync('currentNotebookId')
+    var name = wx.getStorageSync('currentNotebookName')
+    if (id) {
+      this.globalData.currentNotebookId = id
+      this.globalData.currentNotebookName = name || ''
+    }
+  },
+
+  setCurrentNotebook: function (id, name) {
+    this.globalData.currentNotebookId = id
+    this.globalData.currentNotebookName = name || ''
+    if (id) {
+      wx.setStorageSync('currentNotebookId', id)
+      wx.setStorageSync('currentNotebookName', name || '')
+    } else {
+      wx.removeStorageSync('currentNotebookId')
+      wx.removeStorageSync('currentNotebookName')
+    }
+  },
+
+  getCurrentNotebookId: function () {
+    return this.globalData.currentNotebookId
+  },
+
+  getCurrentNotebookName: function () {
+    return this.globalData.currentNotebookName
+  },
+
+  // ========== 阿里云 API Key ==========
 
   loadAliyunApiKey: function () {
     var that = this
