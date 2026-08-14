@@ -67,6 +67,11 @@ Page({
 
     this.recorderManager.onError(function (err) {
       console.error('[录音] 错误:', err)
+      if (that.durationTimer) {
+        clearInterval(that.durationTimer)
+        that.durationTimer = null
+      }
+      that.recorderManager.stop()
       that.setData({ recording: false, loading: false })
       wx.showToast({ title: '录音失败', icon: 'none' })
     })
@@ -162,24 +167,27 @@ Page({
   },
 
   startRecording: function () {
-    this.setData({
-      recording: true,
-      recordDuration: 0,
-      recordStatusText: '正在录音...'
-    })
-    this.recordStartTime = Date.now()
+  this.setData({
+    recording: true,
+    recordDuration: 10,
+    recordStatusText: '正在录音...'
+  })
+  this.recordStartTime = Date.now()
 
-    var that = this
-    this.durationTimer = setInterval(function () {
-      var seconds = Math.floor((Date.now() - that.recordStartTime) / 1000)
-      that.setData({ recordDuration: seconds })
-      if (seconds >= 60) {
-        that.recorderManager.stop()
-      }
-    }, 1000)
+  var that = this
+  this.durationTimer = setInterval(function () {
+    var elapsed = Math.floor((Date.now() - that.recordStartTime) / 1000)
+    var remaining = 10 - elapsed
+    if (remaining <= 0) {
+      that.setData({ recordDuration: 0 })
+      that.recorderManager.stop()
+      return
+    }
+    that.setData({ recordDuration: remaining })
+  }, 1000)
 
     this.recorderManager.start({
-      duration: 60000,
+      duration: 10000,
       sampleRate: 16000,
       numberOfChannels: 1,
       encodeBitRate: 48000,
@@ -189,6 +197,19 @@ Page({
 
   onRecordEnd: function () {
     if (!this.data.recording) return
+
+    // 误触保护：录音时长过短，兜底 stop 释放资源后静默忽略
+    var duration = Date.now() - this.recordStartTime
+    if (duration < 300) {
+      if (this.durationTimer) {
+        clearInterval(this.durationTimer)
+        this.durationTimer = null
+      }
+      this.recorderManager.stop()
+      this.setData({ recording: false })
+      return
+    }
+
     this.recorderManager.stop()
   },
 

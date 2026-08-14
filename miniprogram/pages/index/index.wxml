@@ -33,18 +33,17 @@
 
     <!-- ====== 顶部：按住说话 ====== -->
     <view class="section record-section" wx:if="{{hasNotebook}}">
-      <view class="section-title">语音记账</view>
 
       <!-- 录音状态提示 -->
       <view class="record-status" wx:if="{{recording}}">
         <view class="recording-dot"></view>
-        <text>{{recordDuration}}s 松开识别</text>
+        <text>{{recordDuration}}s 后结束</text>
       </view>
       <view class="record-status" wx:elif="{{loading}}">
         <text>{{loadingText}}</text>
       </view>
       <view class="record-status" wx:else>
-        <text>按住下方按钮说话</text>
+        <text>说出时间地点效果更好哦</text>
       </view>
 
       <!-- 大号录音按钮 -->
