@@ -35,7 +35,11 @@ Page({
     // 当前账本
     currentNotebookId: '',
     currentNotebookName: '',
-    hasNotebook: false
+    hasNotebook: false,
+
+    // 文本输入弹窗
+    textInputVisible: false,
+    textInputValue: ''
   },
 
   // 录音管理器
@@ -801,5 +805,38 @@ Page({
 
   goToNotebooks: function () {
     wx.navigateTo({ url: '/pages/notebooks/notebooks' })
-  }
+  },
+
+  // ========== 文本输入 ==========
+
+  onTextInput: function () {
+    if (this.data.loading || this.data.recording) return
+    this.setData({ textInputVisible: true, textInputValue: '' })
+  },
+
+  onTextInputChange: function (e) {
+    this.setData({ textInputValue: e.detail.value })
+  },
+
+  onTextInputConfirm: function () {
+    var text = (this.data.textInputValue || '').trim()
+    if (!text) {
+      wx.showToast({ title: '请输入内容', icon: 'none' })
+      return
+    }
+
+    this.setData({
+      textInputVisible: false,
+      asrText: text,
+      loading: true,
+      loadingText: 'AI 正在分析...'
+    })
+    this.callHY3(text)
+  },
+
+  onTextInputCancel: function () {
+    this.setData({ textInputVisible: false })
+  },
+
+  onModalStop: function () {}
 })

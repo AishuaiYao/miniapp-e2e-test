@@ -65,6 +65,11 @@
         <view class="ripple ripple2" wx:if="{{recording}}"></view>
         <view class="ripple ripple3" wx:if="{{recording}}"></view>
       </view>
+
+      <!-- 文本输入按钮 -->
+      <view class="text-input-btn" bindtap="onTextInput">
+        <text class="text-input-icon">⌨</text>
+      </view>
     </view>
 
     <!-- ====== 中部：ASR 结果 ====== -->
@@ -171,6 +176,27 @@
 
     <view style="height: 60rpx;"></view>
   </scroll-view>
+
+  <!-- 文本输入弹窗 -->
+  <view class="text-modal-mask" wx:if="{{textInputVisible}}" catchtap="onTextInputCancel">
+    <view class="text-modal-card" catchtap="onModalStop">
+      <view class="text-modal-title">文本记账</view>
+      <textarea
+        class="text-modal-input"
+        placeholder="如：今天中午吃饭花了30块"
+        placeholder-class="text-modal-placeholder"
+        value="{{textInputValue}}"
+        bindinput="onTextInputChange"
+        maxlength="200"
+        auto-height
+        adjust-position="{{true}}"
+      ></textarea>
+      <view class="text-modal-actions">
+        <view class="text-modal-btn text-modal-cancel" catchtap="onTextInputCancel">取消</view>
+        <view class="text-modal-btn text-modal-confirm" catchtap="onTextInputConfirm">确认</view>
+      </view>
+    </view>
+  </view>
 
   <!-- 导航抽屉 -->
   <nav-drawer
