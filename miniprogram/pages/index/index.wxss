@@ -499,6 +499,8 @@ page {
   display: flex;
   flex-direction: column;
   gap: 14rpx;
+  max-height: 1000rpx;
+  overflow-y: auto;
 }
 
 .record-item {

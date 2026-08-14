@@ -421,7 +421,7 @@ Page({
           var record = {
             id: Date.now(),
             type: result.type || 'expense',
-            amount: result.amount,
+            amount: Math.round(result.amount * 1000) / 1000,
             category: result.category || '其他',
             subCategory: result.sub_category || '',
             description: result.description || '',
