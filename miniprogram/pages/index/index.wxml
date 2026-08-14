@@ -2,7 +2,7 @@
   <view class="bg-gradient"></view>
 
   <!-- 自定义导航栏 -->
-  <view class="nav-bar" style="padding-top: {{statusBarHeight}}px; height: {{navTotalHeight}}px;">
+  <view class="nav-bar" style="padding-top: {{statusBarHeight}}px; height: {{navBarHeight}}px;">
     <view class="nav-bar-left" bind:tap="openDrawer">
       <view class="hamburger">
         <view class="hamburger-line"></view>
@@ -14,7 +14,7 @@
     <view class="nav-bar-right"></view>
   </view>
 
-  <scroll-view class="main-scroll" scroll-y="true">
+  <scroll-view class="main-scroll" scroll-y="true" style="top: {{navTotalHeight}}px;">
 
     <!-- 当前账本信息 -->
     <view class="notebook-bar" wx:if="{{hasNotebook}}">

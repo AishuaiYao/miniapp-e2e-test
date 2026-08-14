@@ -22,11 +22,17 @@ page {
 /* ========== 自定义导航栏 ========== */
 
 .nav-bar {
-  position: relative;
-  z-index: 1;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 10;
   display: flex;
   align-items: center;
   padding: 0 24rpx;
+  background: rgba(240, 249, 255, 0.85);
+  backdrop-filter: blur(20rpx);
+  -webkit-backdrop-filter: blur(20rpx);
 }
 
 .nav-bar-left {
@@ -65,9 +71,11 @@ page {
 }
 
 .main-scroll {
-  position: relative;
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
   z-index: 1;
-  height: 100vh;
   box-sizing: border-box;
 }
 
