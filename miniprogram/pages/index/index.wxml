@@ -128,7 +128,7 @@
             <view class="record-info">
               <view class="record-cat">{{item.category}}{{item.subCategory ? ' · ' + item.subCategory : ''}}</view>
               <view class="record-desc">{{item.description}}</view>
-              <view class="record-time">{{item.time}}</view>
+              <view class="record-time">{{item.time}}<text wx:if="{{item.location}}" class="record-loc"> · 📍{{item.location}}</text></view>
             </view>
           </view>
           <view class="record-item-right">

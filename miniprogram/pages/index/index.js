@@ -326,6 +326,7 @@ Page({
         '  "category": "大类",\n' +
         '  "sub_category": "细类",\n' +
         '  "description": "简短描述",\n' +
+        '  "location": "地点，提取不到则为空字符串",\n' +
         '  "reply": "给用户的简短回复"\n' +
         '}\n\n' +
         '【支出大类及细类】\n' +
@@ -429,6 +430,7 @@ Page({
             category: result.category || '其他',
             subCategory: result.sub_category || '',
             description: result.description || '',
+            location: result.location || '',
             time: this.formatTime(new Date()),
             raw: this.data.asrText,
             notebookId: this.data.currentNotebookId
