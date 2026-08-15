@@ -12,7 +12,14 @@ Page({
     records: [],
     totalIncome: 0,
     totalExpense: 0,
-    balance: 0
+    balance: 0,
+    dateEditVisible: false,
+    dateEditId: '',
+    dateEditOldTime: '',
+    dateEditValue: '',
+    locationEditVisible: false,
+    locationEditId: '',
+    locationEditValue: ''
   },
 
   categoryIcons: {
@@ -86,6 +93,90 @@ Page({
       fail: function (err) {
         console.error('[记录] 查询失败:', err)
         wx.showToast({ title: '加载失败', icon: 'none' })
+      }
+    })
+  },
+
+  onModalStop: function () {},
+
+  onEditDate: function (e) {
+    var oldTime = e.currentTarget.dataset.time
+    this.setData({
+      dateEditVisible: true,
+      dateEditId: e.currentTarget.dataset.id,
+      dateEditOldTime: oldTime,
+      dateEditValue: oldTime.substring(0, 10)
+    })
+  },
+
+  onDateChange: function (e) {
+    this.setData({ dateEditValue: e.detail.value })
+  },
+
+  closeDateEdit: function () {
+    this.setData({ dateEditVisible: false })
+  },
+
+  confirmDateEdit: function () {
+    var that = this
+    var oldTime = this.data.dateEditOldTime
+    var newTime = this.data.dateEditValue + ' ' + oldTime.substring(11, 16)
+    var db = wx.cloud.database()
+
+    db.collection('records').doc(this.data.dateEditId).update({
+      data: { time: newTime },
+      success: function () {
+        var records = that.data.records.map(function (record) {
+          if (record._id === that.data.dateEditId) record.time = newTime
+          return record
+        })
+        that.setData({ records: records, dateEditVisible: false })
+        that.recalcStats(records)
+        wx.showToast({ title: '日期已更新', icon: 'success' })
+      },
+      fail: function (err) {
+        console.error('[记录] 日期更新失败:', err)
+        wx.showToast({ title: '更新失败', icon: 'none' })
+      }
+    })
+  },
+
+  onEditLocation: function (e) {
+    this.setData({
+      locationEditVisible: true,
+      locationEditId: e.currentTarget.dataset.id,
+      locationEditValue: e.currentTarget.dataset.location
+    })
+  },
+
+  onLocationInput: function (e) {
+    this.setData({ locationEditValue: e.detail.value })
+  },
+
+  closeLocationEdit: function () {
+    this.setData({ locationEditVisible: false })
+  },
+
+  confirmLocationEdit: function () {
+    var that = this
+    var location = this.data.locationEditValue.trim()
+    var id = this.data.locationEditId
+    var db = wx.cloud.database()
+
+    db.collection('records').doc(id).update({
+      data: { location: location },
+      success: function () {
+        var records = that.data.records.map(function (record) {
+          if (record._id === id) record.location = location
+          return record
+        })
+        that.setData({ records: records, locationEditVisible: false })
+        that.recalcStats(records)
+        wx.showToast({ title: '地点已更新', icon: 'success' })
+      },
+      fail: function (err) {
+        console.error('[记录] 地点更新失败:', err)
+        wx.showToast({ title: '更新失败', icon: 'none' })
       }
     })
   },

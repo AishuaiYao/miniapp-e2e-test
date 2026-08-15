@@ -140,8 +140,15 @@
               <view class="record-cat">{{item.category}}{{item.subCategory ? ' · ' + item.subCategory : ''}}</view>
               <view class="record-desc">{{item.description}}</view>
               <view class="record-tags">
-                <view class="record-tag" catchtap="onTagTap" data-type="time" data-value="{{item.time}}">{{item.time}}</view>
-                <view wx:if="{{item.location}}" class="record-tag" catchtap="onTagTap" data-type="location" data-value="{{item.location}}"><image class="tag-icon" src="/images/定位.png" mode="aspectFit"></image>{{item.location}}</view>
+                <view class="record-tag" catchtap="onTagTap" data-type="time" data-value="{{item.time}}">
+                  <text>{{item.time}}</text>
+                  <text class="tag-edit" catchtap="onEditDate" data-id="{{item._id}}" data-time="{{item.time}}">✎</text>
+                </view>
+                <view wx:if="{{item.location}}" class="record-tag" catchtap="onTagTap" data-type="location" data-value="{{item.location}}">
+                  <image class="tag-icon" src="/images/定位.png" mode="aspectFit"></image>
+                  <text>{{item.location}}</text>
+                  <text class="tag-edit" catchtap="onEditLocation" data-id="{{item._id}}" data-location="{{item.location}}">✎</text>
+                </view>
               </view>
             </view>
           </view>
@@ -159,24 +166,60 @@
       </view>
     </view>
 
-    <!-- ====== 支出分类饼状图 ====== -->
-    <view class="section chart-section" wx:if="{{pieData.length > 0}}">
-      <view class="section-title">支出分类占比</view>
-      <view class="chart-card">
-        <view class="chart-container">
-          <canvas canvas-id="pieChart" id="pieChart" type="2d" class="pie-canvas"></canvas>
-          <!-- 图例 -->
-          <view class="chart-legend">
-            <view class="legend-item" wx:for="{{pieData}}" wx:key="index">
-              <view class="legend-dot" style="background: {{item.color}};"></view>
-              <text class="legend-label">{{item.name}}</text>
-              <text class="legend-value">¥{{item.value}}</text>
-              <text class="legend-percent">{{item.percent}}%</text>
-            </view>
-            <view class="legend-sub" wx:for="{{pieData}}" wx:key="index" wx:for-item="pie">
-              <text class="legend-sub-text" wx:if="{{pie.subText}}">{{pie.name}}{{pie.subText}}</text>
+    <!-- ====== 综合分析 ====== -->
+    <view class="analysis-section" wx:if="{{records.length > 0}}">
+      <view class="section analysis-header">
+        <view class="section-title">综合分析</view>
+        <view class="analysis-filter">
+          <text class="analysis-filter-label">统计时间：{{analysisLabel}}</text>
+          <picker mode="date" fields="month" value="{{analysisMonth}}" bindchange="onAnalysisMonthChange">
+            <view class="analysis-month-btn">选择月份</view>
+          </picker>
+          <view class="analysis-all-btn" wx:if="{{analysisMonth}}" bindtap="clearAnalysisMonth">全部</view>
+        </view>
+      </view>
+
+      <!-- 支出占比 -->
+      <view class="section chart-section" wx:if="{{pieData.length > 0}}">
+        <view class="analysis-subtitle">支出占比</view>
+        <view class="chart-card">
+          <view class="chart-container">
+            <canvas canvas-id="pieChart" id="pieChart" type="2d" class="pie-canvas"></canvas>
+            <view class="chart-legend">
+              <view class="legend-item" wx:for="{{pieData}}" wx:key="index">
+                <view class="legend-dot" style="background: {{item.color}};"></view>
+                <text class="legend-label">{{item.name}}</text>
+                <text class="legend-value">¥{{item.value}}</text>
+                <text class="legend-percent">{{item.percent}}%</text>
+              </view>
+              <view class="legend-sub" wx:for="{{pieData}}" wx:key="index" wx:for-item="pie">
+                <text class="legend-sub-text" wx:if="{{pie.subText}}">{{pie.name}}{{pie.subText}}</text>
+              </view>
             </view>
           </view>
+        </view>
+      </view>
+
+      <!-- 每日消费 -->
+      <view class="section daily-section" wx:if="{{calendarDays.length > 0}}">
+        <view class="analysis-subtitle">每日消费</view>
+        <view class="daily-card">
+          <view class="calendar-header">
+            <text class="calendar-month">{{calendarLabel}}</text>
+            <picker mode="date" fields="month" value="{{calendarMonth}}" bindchange="onCalendarMonthChange">
+              <text class="calendar-change">切换月份</text>
+            </picker>
+          </view>
+          <view class="weekday-row">
+            <text wx:for="{{['日','一','二','三','四','五','六']}}" wx:key="*this">{{item}}</text>
+          </view>
+          <view class="calendar-grid">
+            <view wx:for="{{calendarDays}}" wx:key="index" class="calendar-day {{item.empty ? 'calendar-empty' : 'heat-level-' + item.level}}">
+              <text wx:if="{{!item.empty}}" class="calendar-day-number">{{item.day}}</text>
+              <text wx:if="{{item.amount > 0}}" class="calendar-day-amount">¥{{item.amount}}</text>
+            </view>
+          </view>
+          <view class="daily-total">{{calendarLabel}}支出 ¥{{dailyExpenseTotal}}</view>
         </view>
       </view>
     </view>
@@ -208,6 +251,32 @@
       <view class="text-modal-actions">
         <view class="text-modal-btn text-modal-cancel" catchtap="onTextInputCancel">取消</view>
         <view class="text-modal-btn text-modal-confirm" catchtap="onTextInputConfirm">确认</view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 修改日期弹窗 -->
+  <view class="date-edit-mask" wx:if="{{dateEditVisible}}" catchtap="closeDateEdit">
+    <view class="date-edit-card" catchtap="onModalStop">
+      <text class="date-edit-title">修改日期</text>
+      <picker mode="date" value="{{dateEditValue}}" bindchange="onDateChange">
+        <view class="date-picker-value">{{dateEditValue}}</view>
+      </picker>
+      <view class="date-edit-actions">
+        <view class="date-edit-cancel" catchtap="closeDateEdit">取消</view>
+        <view class="date-edit-confirm" catchtap="confirmDateEdit">确认</view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 修改地点弹窗 -->
+  <view class="location-edit-mask" wx:if="{{locationEditVisible}}" catchtap="closeLocationEdit">
+    <view class="location-edit-card" catchtap="onModalStop">
+      <text class="location-edit-title">修改地点</text>
+      <input class="location-edit-input" value="{{locationEditValue}}" bindinput="onLocationInput" placeholder="请输入地点" maxlength="50"></input>
+      <view class="location-edit-actions">
+        <view class="location-edit-cancel" catchtap="closeLocationEdit">取消</view>
+        <view class="location-edit-confirm" catchtap="confirmLocationEdit">确认</view>
       </view>
     </view>
   </view>

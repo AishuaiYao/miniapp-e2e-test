@@ -29,6 +29,14 @@ Page({
     balance: 0,
     dateRange: '',
 
+    // 综合分析时间筛选
+    analysisMonth: '',
+    analysisLabel: '全部时间',
+    calendarMonth: '',
+    calendarLabel: '',
+    calendarDays: [],
+    dailyExpenseTotal: 0,
+
     // 饼状图数据
     pieData: [],
 
@@ -45,7 +53,16 @@ Page({
 
     // 文本输入弹窗
     textInputVisible: false,
-    textInputValue: ''
+    textInputValue: '',
+
+    // 日期编辑
+    dateEditVisible: false,
+    dateEditId: '',
+    dateEditOldTime: '',
+    dateEditValue: '',
+    locationEditVisible: false,
+    locationEditId: '',
+    locationEditValue: ''
   },
 
   // 录音管理器
@@ -61,7 +78,14 @@ Page({
 
   onLoad: function () {
     // 初始化导航栏尺寸
-    this.setData(app.getNavBarLayout())
+    var now = new Date()
+    var currentMonth = now.getFullYear() + '-' + (now.getMonth() + 1).toString().padStart(2, '0')
+    this.setData(Object.assign(app.getNavBarLayout(), {
+      analysisMonth: currentMonth,
+      analysisLabel: currentMonth.replace('-', '年') + '月',
+      calendarMonth: currentMonth,
+      calendarLabel: currentMonth.replace('-', '年') + '月'
+    }))
 
     this.recorderManager = wx.getRecorderManager()
     var that = this
@@ -335,12 +359,13 @@ Page({
   callHY3: function (text) {
     var that = this
     var answer = ''
-    var startTime = Date.now()
+    var currentTime = this.formatTime(new Date())
 
     try {
       var model = wx.cloud.extend.AI.createModel('cloudbase')
 
-      var systemPrompt = '你是一个智能记账助手。用户会用语音描述收支信息，你需要分析并提取结构化数据。\n\n' +
+      var systemPrompt = '你是一个智能记账助手。用户会用语音或文字描述收支信息，你需要分析并提取结构化数据。\n' +
+        '当前时间：' + currentTime + '\n\n' +
         '请严格按照以下JSON格式回复，不要有任何额外文字：\n' +
         '{\n' +
         '  "is_transaction": true/false,\n' +
@@ -350,8 +375,16 @@ Page({
         '  "sub_category": "细类",\n' +
         '  "description": "简短描述",\n' +
         '  "location": "地点，提取不到则为空字符串",\n' +
+        '  "transaction_time": "完整交易时间，格式YYYY-MM-DD HH:mm，未提及则为空字符串",\n' +
         '  "reply": "给用户的简短回复"\n' +
         '}\n\n' +
+        '【交易时间提取规则】\n' +
+        '1. 用户明确提到交易时间时，必须提取到transaction_time。\n' +
+        '2. transaction_time必须是完整的YYYY-MM-DD HH:mm格式，不能只返回月日。\n' +
+        '3. 当前时间作为相对时间基准：今天、昨天、前天、上周五、上个月等都要换算成完整年月日。\n' +
+        '4. 只有月日时，结合当前年份补全年份；出现去年、前年等词时按语义计算年份。\n' +
+        '5. 只有日期没有具体时刻时，时间统一使用12:00。\n' +
+        '6. 用户没有提及时间，transaction_time返回空字符串，由程序使用当前时间。\n\n' +
         '【支出大类及细类】\n' +
         '餐饮：堂食、外卖、快餐、零食、饮料、咖啡、聚餐、夜宵、早餐、午餐、晚餐\n' +
         '交通：打车、出租车、地铁、公交、共享单车、高铁、火车、飞机、停车费、加油、过路费、充电\n' +
@@ -375,7 +408,11 @@ Page({
         '退款：退货退款、报销\n' +
         '其他收入：无法归类的收入\n\n' +
         '【示例】\n' +
-        '用户："今天中午吃饭花了30块" → {"is_transaction":true,"type":"expense","amount":30,"category":"餐饮","sub_category":"午餐","description":"吃饭","reply":"已记：餐饮-午餐 30元"}\n' +
+        '用户："今天中午吃饭花了30块" → transaction_time使用当前日期的12:00，并返回完整YYYY-MM-DD HH:mm\n' +
+        '用户："8月10日买午饭花了30元" → transaction_time使用当前年份的08月10日12:00，并返回完整YYYY-MM-DD HH:mm\n' +
+        '用户："上周五收到工资8000元" → 根据当前时间计算上周五的完整年月日和12:00\n' +
+        '用户："刚刚买了杯咖啡20元" → transaction_time返回空字符串，由程序使用当前时间\n' +
+        '用户："今天中午吃饭花了30块" → {"is_transaction":true,"type":"expense","amount":30,"category":"餐饮","sub_category":"午餐","description":"吃饭","transaction_time":"完整年月日12:00","reply":"已记：餐饮-午餐 30元"}\n' +
         '用户："打车去公司花了15" → {"is_transaction":true,"type":"expense","amount":15,"category":"交通","sub_category":"打车","description":"打车去公司","reply":"已记：交通-打车 15元"}\n' +
         '用户："扫了个共享单车1块5" → {"is_transaction":true,"type":"expense","amount":1.5,"category":"交通","sub_category":"共享单车","description":"共享单车","reply":"已记：交通-共享单车 1.5元"}\n' +
         '用户："点了个外卖28块" → {"is_transaction":true,"type":"expense","amount":28,"category":"餐饮","sub_category":"外卖","description":"外卖","reply":"已记：餐饮-外卖 28元"}\n' +
@@ -453,6 +490,10 @@ Page({
           }
 
           var db = wx.cloud.database()
+          var nowTime = that2.formatTime(new Date())
+          var extractedTime = result.transaction_time || ''
+          var timePattern = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/
+          var recordTime = timePattern.test(extractedTime) ? extractedTime : nowTime
           var recordData = {
             openId: userInfo.openId,
             notebookId: that2.data.currentNotebookId,
@@ -462,7 +503,7 @@ Page({
             subCategory: result.sub_category || '',
             description: result.description || '',
             location: result.location || '',
-            time: that2.formatTime(new Date()),
+            time: recordTime,
             raw: that2.data.asrText
           }
 
@@ -523,12 +564,19 @@ Page({
   },
 
   updateStats: function (records) {
+    var analysisRecords = records
+    if (this.data.analysisMonth) {
+      analysisRecords = records.filter(function (r) {
+        return (r.time || '').substring(0, 7) === this.data.analysisMonth
+      }, this)
+    }
+
     var totalIncome = 0
     var totalExpense = 0
     var categoryMap = {}
 
-    for (var i = 0; i < records.length; i++) {
-      var r = records[i]
+    for (var i = 0; i < analysisRecords.length; i++) {
+      var r = analysisRecords[i]
       if (r.type === 'income') {
         totalIncome += r.amount
       } else {
@@ -591,8 +639,67 @@ Page({
       dateRange: dateRange
     })
 
-    // 生成饼状图数据（只展示支出分类）
+    // 生成饼状图数据（只展示筛选范围内的支出分类）
     this.buildPieData(categoryStats, totalExpense)
+    this.updateCalendar(records)
+  },
+
+  onAnalysisMonthChange: function (e) {
+    var month = e.detail.value
+    this.setData({
+      analysisMonth: month,
+      analysisLabel: month.replace('-', '年') + '月',
+      calendarMonth: month,
+      calendarLabel: month.replace('-', '年') + '月'
+    })
+    this.updateStats(this.data.records)
+  },
+
+  clearAnalysisMonth: function () {
+    this.setData({ analysisMonth: '', analysisLabel: '全部时间' })
+    this.updateStats(this.data.records)
+  },
+
+  onCalendarMonthChange: function (e) {
+    var month = e.detail.value
+    this.setData({
+      calendarMonth: month,
+      calendarLabel: month.replace('-', '年') + '月'
+    })
+    this.updateCalendar(this.data.records)
+  },
+
+  updateCalendar: function (records) {
+    var month = this.data.analysisMonth || this.data.calendarMonth
+    if (!month) return
+
+    var parts = month.split('-')
+    var year = Number(parts[0])
+    var monthIndex = Number(parts[1]) - 1
+    var firstDay = new Date(year, monthIndex, 1).getDay()
+    var daysInMonth = new Date(year, monthIndex + 1, 0).getDate()
+    var totals = {}
+    var max = 0
+    var dailyTotal = 0
+
+    for (var i = 0; i < records.length; i++) {
+      var record = records[i]
+      if (record.type !== 'expense' || (record.time || '').substring(0, 7) !== month) continue
+      var day = Number(record.time.substring(8, 10))
+      totals[day] = round3((totals[day] || 0) + Number(record.amount || 0))
+      dailyTotal += Number(record.amount || 0)
+      if (totals[day] > max) max = totals[day]
+    }
+
+    var days = []
+    for (var blank = 0; blank < firstDay; blank++) days.push({ empty: true })
+    for (var date = 1; date <= daysInMonth; date++) {
+      var amount = totals[date] || 0
+      var level = amount > 0 ? Math.max(1, Math.ceil(amount / max * 4)) : 0
+      days.push({ day: date, amount: amount, level: level, empty: false })
+    }
+
+    this.setData({ calendarDays: days, dailyExpenseTotal: round3(dailyTotal) })
   },
 
   // 大类固定配色（马卡龙色系）
@@ -909,6 +1016,90 @@ Page({
   },
 
   onModalStop: function () {},
+
+  onEditDate: function (e) {
+    var oldTime = e.currentTarget.dataset.time
+    this.setData({
+      dateEditVisible: true,
+      dateEditId: e.currentTarget.dataset.id,
+      dateEditOldTime: oldTime,
+      dateEditValue: oldTime.substring(0, 10)
+    })
+  },
+
+  onDateChange: function (e) {
+    this.setData({ dateEditValue: e.detail.value })
+  },
+
+  closeDateEdit: function () {
+    this.setData({ dateEditVisible: false })
+  },
+
+  confirmDateEdit: function () {
+    var that = this
+    var oldTime = this.data.dateEditOldTime
+    var newTime = this.data.dateEditValue + ' ' + oldTime.substring(11, 16)
+    var db = wx.cloud.database()
+
+    db.collection('records').doc(this.data.dateEditId).update({
+      data: { time: newTime },
+      success: function () {
+        var records = that.data.records.map(function (record) {
+          if (record._id === that.data.dateEditId) record.time = newTime
+          return record
+        })
+        that.setData({ records: records, dateEditVisible: false })
+        that.updateStats(records)
+        that.filterRecords()
+        wx.showToast({ title: '日期已更新', icon: 'success' })
+      },
+      fail: function (err) {
+        console.error('[记录] 日期更新失败:', err)
+        wx.showToast({ title: '更新失败', icon: 'none' })
+      }
+    })
+  },
+
+  onEditLocation: function (e) {
+    this.setData({
+      locationEditVisible: true,
+      locationEditId: e.currentTarget.dataset.id,
+      locationEditValue: e.currentTarget.dataset.location
+    })
+  },
+
+  onLocationInput: function (e) {
+    this.setData({ locationEditValue: e.detail.value })
+  },
+
+  closeLocationEdit: function () {
+    this.setData({ locationEditVisible: false })
+  },
+
+  confirmLocationEdit: function () {
+    var that = this
+    var location = this.data.locationEditValue.trim()
+    var id = this.data.locationEditId
+    var db = wx.cloud.database()
+
+    db.collection('records').doc(id).update({
+      data: { location: location },
+      success: function () {
+        var records = that.data.records.map(function (record) {
+          if (record._id === id) record.location = location
+          return record
+        })
+        that.setData({ records: records, locationEditVisible: false })
+        that.updateStats(records)
+        that.filterRecords()
+        wx.showToast({ title: '地点已更新', icon: 'success' })
+      },
+      fail: function (err) {
+        console.error('[记录] 地点更新失败:', err)
+        wx.showToast({ title: '更新失败', icon: 'none' })
+      }
+    })
+  },
 
   onTagTap: function (e) {
     var type = e.currentTarget.dataset.type
