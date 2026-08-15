@@ -53,6 +53,14 @@
         bindtouchend="onRecordEnd"
         bindtouchcancel="onRecordEnd"
       >
+        <!-- 云雾背景 -->
+        <view class="cloud-bg" wx:if="{{!recording}}">
+          <view class="cloud-blob cloud-blob-1"></view>
+          <view class="cloud-blob cloud-blob-2"></view>
+          <view class="cloud-blob cloud-blob-3"></view>
+          <view class="cloud-blob cloud-blob-4"></view>
+          <view class="cloud-blob cloud-blob-5"></view>
+        </view>
         <view class="record-btn-inner">
           <view class="mic-icon">
             <view class="mic-body"></view>

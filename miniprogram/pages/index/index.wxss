@@ -250,8 +250,12 @@ page {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #bae6fd 0%, #7dd3fc 50%, #38bdf8 100%);
-  box-shadow: 0 8rpx 32rpx rgba(56, 189, 248, 0.4);
+  overflow: hidden;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.25) 0%, rgba(224, 242, 254, 0.2) 50%, rgba(219, 234, 254, 0.25) 100%);
+  border: 2rpx solid rgba(255, 255, 255, 0.5);
+  box-shadow: 0 8rpx 32rpx rgba(56, 189, 248, 0.25), inset 0 2rpx 8rpx rgba(255, 255, 255, 0.6), inset 0 -4rpx 16rpx rgba(199, 210, 254, 0.2);
+  backdrop-filter: blur(4rpx);
+  -webkit-backdrop-filter: blur(4rpx);
   transition: all 0.25s ease;
 }
 
@@ -264,6 +268,91 @@ page {
 .record-btn.disabled {
   background: linear-gradient(135deg, #e2e8f0 0%, #cbd5e1 100%);
   box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.08);
+}
+
+/* 云雾背景 */
+.cloud-bg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  overflow: hidden;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.cloud-blob {
+  position: absolute;
+  width: 220rpx;
+  height: 220rpx;
+  border-radius: 50%;
+  filter: blur(28rpx);
+  mix-blend-mode: screen;
+}
+
+.cloud-blob-1 {
+  background: #f9a8d4;
+  top: 20rpx;
+  left: 40rpx;
+  animation: cloud-move-1 6s ease-in-out infinite;
+}
+
+.cloud-blob-2 {
+  background: #c4b5fd;
+  top: 160rpx;
+  left: 180rpx;
+  animation: cloud-move-2 7s ease-in-out infinite;
+}
+
+.cloud-blob-3 {
+  background: #93c5fd;
+  top: 80rpx;
+  left: 140rpx;
+  animation: cloud-move-3 5s ease-in-out infinite;
+}
+
+.cloud-blob-4 {
+  background: #a5f3fc;
+  top: 140rpx;
+  left: 30rpx;
+  animation: cloud-move-4 6.5s ease-in-out infinite;
+}
+
+.cloud-blob-5 {
+  background: #fbcfe8;
+  top: 40rpx;
+  left: 200rpx;
+  animation: cloud-move-5 5.5s ease-in-out infinite;
+}
+
+@keyframes cloud-move-1 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(60rpx, 40rpx) scale(1.15); }
+  66% { transform: translate(-30rpx, 80rpx) scale(0.9); }
+}
+
+@keyframes cloud-move-2 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(-50rpx, -40rpx) scale(1.1); }
+  66% { transform: translate(40rpx, 30rpx) scale(1.2); }
+}
+
+@keyframes cloud-move-3 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(50rpx, -50rpx) scale(1.25); }
+}
+
+@keyframes cloud-move-4 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  40% { transform: translate(70rpx, -30rpx) scale(0.85); }
+  70% { transform: translate(-20rpx, 50rpx) scale(1.15); }
+}
+
+@keyframes cloud-move-5 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(-60rpx, 50rpx) scale(1.2); }
 }
 
 /* 文本输入按钮 */
@@ -290,7 +379,9 @@ page {
   display: flex;
   flex-direction: column;
   align-items: center;
-  z-index: 2;
+  z-index: 3;
+  position: relative;
+  pointer-events: none;
 }
 
 /* 麦克风图标 */
@@ -305,15 +396,19 @@ page {
   width: 48rpx;
   height: 72rpx;
   border-radius: 24rpx;
-  background: #fff;
+  background: linear-gradient(135deg, rgba(255,255,255,0.85), rgba(199,210,254,0.65));
+  border: 2rpx solid rgba(255, 255, 255, 0.8);
+  box-shadow: 0 2rpx 12rpx rgba(139, 92, 246, 0.4), inset 0 2rpx 4rpx rgba(255, 255, 255, 0.7);
 }
 
 .mic-stand {
   width: 6rpx;
   height: 16rpx;
-  background: #fff;
+  background: linear-gradient(135deg, rgba(255,255,255,0.85), rgba(199,210,254,0.65));
+  border: 2rpx solid rgba(255, 255, 255, 0.8);
   margin-top: 3rpx;
   border-radius: 0 0 6rpx 6rpx;
+  box-shadow: 0 2rpx 12rpx rgba(139, 92, 246, 0.4);
 }
 
 .record-btn-text {
@@ -321,6 +416,7 @@ page {
   color: #fff;
   font-weight: 600;
   margin-top: 4rpx;
+  text-shadow: 0 1rpx 2rpx rgba(139, 92, 246, 0.9), 0 0 10rpx rgba(139, 92, 246, 0.5), 0 0 4rpx rgba(255, 255, 255, 0.8);
 }
 
 /* 录音波纹 */
