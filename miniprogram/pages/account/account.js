@@ -92,81 +92,116 @@ Page({
 
         // 创建或更新用户（存到云数据库 users 集合）
         var db = wx.cloud.database()
-        db.collection('users').where({ openId: openId }).get({
-          success: function (queryRes) {
-            var userInfo = {
-              openId: openId,
-              nickName: nickName.trim(),
-              avatarUrl: avatarUrl || ''
-            }
-
-            if (queryRes.data.length > 0) {
-              // 已有记录，更新
-              var userId = queryRes.data[0]._id
-              db.collection('users').doc(userId).update({
-                data: {
-                  nickName: nickName.trim(),
-                  avatarUrl: avatarUrl || '',
-                  updatedAt: new Date()
-                },
-                success: function () {
-                  userInfo._id = userId
-                  app.setUserInfo(userInfo)
-                  that.setData({
-                    userInfo: userInfo,
-                    showRegister: false,
-                    submitting: false,
-                    avatarUrl: '',
-                    nickName: ''
-                  })
-                  wx.showToast({ title: '登录成功', icon: 'success' })
-                },
-                fail: function (err) {
-                  console.error('[account] 更新用户失败:', err)
-                  wx.showToast({ title: '登录失败', icon: 'none' })
-                  that.setData({ submitting: false })
-                }
-              })
-            } else {
-              // 新用户，创建
-              db.collection('users').add({
-                data: {
-                  openId: openId,
-                  nickName: nickName.trim(),
-                  avatarUrl: avatarUrl || '',
-                  createdAt: new Date()
-                },
-                success: function (addRes) {
-                  userInfo._id = addRes._id
-                  app.setUserInfo(userInfo)
-                  that.setData({
-                    userInfo: userInfo,
-                    showRegister: false,
-                    submitting: false,
-                    avatarUrl: '',
-                    nickName: ''
-                  })
-                  wx.showToast({ title: '登录成功', icon: 'success' })
-                },
-                fail: function (err) {
-                  console.error('[account] 创建用户失败:', err)
-                  wx.showToast({ title: '登录失败', icon: 'none' })
-                  that.setData({ submitting: false })
-                }
-              })
-            }
-          },
-          fail: function (err) {
-            console.error('[account] 查询用户失败:', err)
-            wx.showToast({ title: '登录失败', icon: 'none' })
-            that.setData({ submitting: false })
-          }
-        })
+        that.queryAndSaveUser(db, openId, nickName, avatarUrl)
       },
+
       fail: function (err) {
         console.error('[account] getOpenId 失败:', err)
         wx.showToast({ title: '获取身份信息失败', icon: 'none' })
         that.setData({ submitting: false })
+      }
+    })
+  },
+
+  queryAndSaveUser: function (db, openId, nickName, avatarUrl) {
+    var that = this
+    db.collection('users').where({ openId: openId }).get({
+      success: function (queryRes) {
+        var userInfo = {
+          openId: openId,
+          nickName: nickName.trim(),
+          avatarUrl: avatarUrl || ''
+        }
+
+        if (queryRes.data.length > 0) {
+          // 已有记录，更新
+          var userId = queryRes.data[0]._id
+          db.collection('users').doc(userId).update({
+            data: {
+              nickName: nickName.trim(),
+              avatarUrl: avatarUrl || '',
+              updatedAt: new Date()
+            },
+            success: function () {
+              userInfo._id = userId
+              app.setUserInfo(userInfo)
+              that.setData({
+                userInfo: userInfo,
+                showRegister: false,
+                submitting: false,
+                avatarUrl: '',
+                nickName: ''
+              })
+              wx.showToast({ title: '登录成功', icon: 'success' })
+            },
+            fail: function (err) {
+              console.error('[account] 更新用户失败:', err)
+              wx.showToast({ title: '登录失败', icon: 'none' })
+              that.setData({ submitting: false })
+            }
+          })
+        } else {
+          // 新用户，创建
+          db.collection('users').add({
+            data: {
+              openId: openId,
+              nickName: nickName.trim(),
+              avatarUrl: avatarUrl || '',
+              createdAt: new Date()
+            },
+            success: function (addRes) {
+              userInfo._id = addRes._id
+              app.setUserInfo(userInfo)
+              that.setData({
+                userInfo: userInfo,
+                showRegister: false,
+                submitting: false,
+                avatarUrl: '',
+                nickName: ''
+              })
+              wx.showToast({ title: '登录成功', icon: 'success' })
+            },
+            fail: function (err) {
+              console.error('[account] 创建用户失败:', err)
+              wx.showToast({ title: '登录失败', icon: 'none' })
+              that.setData({ submitting: false })
+            }
+          })
+        }
+      },
+      fail: function (err) {
+        // 集合不存在时，add 会自动创建集合
+        console.log('[account] 查询失败，尝试直接创建用户:', err.errCode || err.errMsg)
+        var userInfo = {
+          openId: openId,
+          nickName: nickName.trim(),
+          avatarUrl: avatarUrl || ''
+        }
+        db.collection('users').add({
+          data: {
+            openId: openId,
+            nickName: nickName.trim(),
+            avatarUrl: avatarUrl || '',
+            createdAt: new Date()
+          },
+          success: function (addRes) {
+            userInfo._id = addRes._id
+            app.setUserInfo(userInfo)
+            that.setData({
+              userInfo: userInfo,
+              showRegister: false,
+              submitting: false,
+              avatarUrl: '',
+              nickName: ''
+            })
+            wx.showToast({ title: '登录成功', icon: 'success' })
+          },
+          fail: function (err) {
+            console.error('[account] 创建用户失败:', err)
+            wx.showToast({ title: '登录失败', icon: 'none' })
+            that.setData({ submitting: false })
+          }
+        })
       }
     })
   },
