@@ -113,14 +113,15 @@ Page({
 
   loadNotebookIcon: function (notebookId) {
     var that = this
-    wx.getStorage({
-      key: 'notebooks',
+    var db = wx.cloud.database()
+    db.collection('notebooks').doc(notebookId).get({
       success: function (res) {
-        var notebooks = res.data || []
-        var current = notebooks.filter(function (n) { return n._id === notebookId })[0]
-        if (current) {
-          that.setData({ currentNotebookIcon: current.customIcon || '' })
+        if (res.data) {
+          that.setData({ currentNotebookIcon: res.data.customIcon || '' })
         }
+      },
+      fail: function () {
+        that.setData({ currentNotebookIcon: '' })
       }
     })
   },
@@ -444,27 +445,43 @@ Page({
         console.log('[记账] 解析结果:', result)
 
         if (result.is_transaction === true && result.amount > 0) {
-          // 添加记账记录
-          var record = {
-            id: Date.now(),
+          var that2 = this
+          var userInfo = app.getUserInfo()
+          if (!userInfo || !userInfo.openId) {
+            wx.showToast({ title: '请先登录', icon: 'none' })
+            return
+          }
+
+          var db = wx.cloud.database()
+          var recordData = {
+            openId: userInfo.openId,
+            notebookId: that2.data.currentNotebookId,
             type: result.type || 'expense',
             amount: round3(result.amount),
             category: result.category || '其他',
             subCategory: result.sub_category || '',
             description: result.description || '',
             location: result.location || '',
-            time: this.formatTime(new Date()),
-            raw: this.data.asrText,
-            notebookId: this.data.currentNotebookId
+            time: that2.formatTime(new Date()),
+            raw: that2.data.asrText
           }
 
-          var records = [record].concat(this.data.records)
-          this.setData({ records: records })
-          this.saveRecords()
-          this.updateStats(records)
-          this.filterRecords()
-
-          wx.showToast({ title: '记账成功', icon: 'success' })
+          db.collection('records').add({
+            data: recordData,
+            success: function (res) {
+              recordData._id = res._id
+              recordData.categoryIcon = that2.categoryIcons[recordData.category] || ''
+              var records = [recordData].concat(that2.data.records)
+              that2.setData({ records: records })
+              that2.updateStats(records)
+              that2.filterRecords()
+              wx.showToast({ title: '记账成功', icon: 'success' })
+            },
+            fail: function (err) {
+              console.error('[记账] 保存失败:', err)
+              wx.showToast({ title: '保存失败', icon: 'none' })
+            }
+          })
         }
       }
     } catch (e) {
@@ -477,48 +494,32 @@ Page({
   loadRecords: function () {
     var that = this
     var notebookId = this.data.currentNotebookId
-    wx.getStorage({
-      key: 'account_records',
+    var userInfo = app.getUserInfo()
+    if (!userInfo || !userInfo.openId || !notebookId) return
+
+    var db = wx.cloud.database()
+    db.collection('records').where({
+      openId: userInfo.openId,
+      notebookId: notebookId
+    }).orderBy('time', 'desc').get({
       success: function (res) {
-        var allRecords = res.data || []
-        // 只显示当前账本的记录
-        var records = notebookId ? allRecords.filter(function (r) {
-          return r.notebookId === notebookId
-        }) : allRecords
+        var records = res.data || []
+        var icons = that.categoryIcons
+        for (var i = 0; i < records.length; i++) {
+          records[i].categoryIcon = icons[records[i].category] || ''
+        }
         that.setData({ records: records })
         that.updateStats(records)
         that.filterRecords()
+      },
+      fail: function (err) {
+        console.error('[记录] 查询失败:', err)
       }
     })
   },
 
   saveRecords: function () {
-    var that = this
-    var notebookId = this.data.currentNotebookId
-    // 先读取全部记录，替换当前账本的记录，再保存
-    wx.getStorage({
-      key: 'account_records',
-      success: function (res) {
-        var allRecords = res.data || []
-        // 移除当前账本的旧记录
-        var otherRecords = allRecords.filter(function (r) {
-          return r.notebookId !== notebookId
-        })
-        // 合并当前账本的新记录
-        var merged = otherRecords.concat(that.data.records)
-        wx.setStorage({
-          key: 'account_records',
-          data: merged
-        })
-      },
-      fail: function () {
-        // 没有历史记录，直接保存
-        wx.setStorage({
-          key: 'account_records',
-          data: that.data.records
-        })
-      }
-    })
+    // 云端模式下，单条记录在 handleAIReply 里直接 add，这里不再需要批量保存
   },
 
   updateStats: function (records) {
@@ -616,6 +617,30 @@ Page({
     '红包': '#fda4af',
     '退款': '#a5f3fc',
     '其他收入': '#e2e8f0'
+  },
+
+  // 大类图标映射
+  categoryIcons: {
+    '餐饮': '/images/classification/餐饮.png',
+    '交通': '/images/classification/交通.png',
+    '购物': '/images/classification/购物.png',
+    '服饰': '/images/classification/服饰.png',
+    '娱乐': '/images/classification/游戏.png',
+    '住房': '/images/classification/住房.png',
+    '医疗': '/images/classification/医疗.png',
+    '教育': '/images/classification/教育.png',
+    '生活': '/images/classification/生活.png',
+    '社交': '/images/classification/社交.png',
+    '旅行': '/images/classification/旅行.png',
+    '运动': '/images/classification/运动.png',
+    '其他支出': '/images/classification/支出的其他.png',
+    '工资': '/images/classification/工资.png',
+    '奖金': '/images/classification/奖金.png',
+    '兼职': '/images/classification/兼职.png',
+    '投资': '/images/classification/投资.png',
+    '红包': '/images/classification/红包.png',
+    '退款': '/images/classification/退款.png',
+    '其他收入': '/images/classification/收入的其他.png'
   },
   // 备用颜色
   fallbackColors: ['#fda4af', '#fcd34d', '#86efac', '#7dd3fc', '#c4b5fd', '#f9a8d4', '#fdba74', '#a5f3fc', '#ddd6fe', '#fecaca'],
@@ -772,11 +797,20 @@ Page({
       content: '确定删除这条记录？',
       success: function (res) {
         if (res.confirm) {
-          var records = that.data.records.filter(function (r) { return r.id !== id })
-          that.setData({ records: records })
-          that.saveRecords()
-          that.updateStats(records)
-          that.filterRecords()
+          var db = wx.cloud.database()
+          db.collection('records').doc(id).remove({
+            success: function () {
+              var records = that.data.records.filter(function (r) { return r._id !== id })
+              that.setData({ records: records })
+              that.updateStats(records)
+              that.filterRecords()
+              wx.showToast({ title: '已删除', icon: 'none' })
+            },
+            fail: function (err) {
+              console.error('[记录] 删除失败:', err)
+              wx.showToast({ title: '删除失败', icon: 'none' })
+            }
+          })
         }
       }
     })

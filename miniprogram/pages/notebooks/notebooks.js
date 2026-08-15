@@ -57,11 +57,16 @@ Page({
 
   loadNotebooks: function () {
     var that = this
-    wx.getStorage({
-      key: 'notebooks',
+    var userInfo = app.getUserInfo()
+    if (!userInfo || !userInfo.openId) {
+      wx.showToast({ title: '请先登录', icon: 'none' })
+      return
+    }
+
+    var db = wx.cloud.database()
+    db.collection('notebooks').where({ openId: userInfo.openId }).orderBy('createdAt', 'asc').get({
       success: function (res) {
         var notebooks = res.data || []
-        // 格式化时间
         for (var i = 0; i < notebooks.length; i++) {
           if (notebooks[i].createdAt) {
             notebooks[i].timeStr = that.formatTime(new Date(notebooks[i].createdAt))
@@ -72,14 +77,11 @@ Page({
           notebooks: notebooks,
           currentNotebookId: currentNotebookId
         })
+      },
+      fail: function (err) {
+        console.error('[账本] 查询失败:', err)
+        wx.showToast({ title: '加载失败', icon: 'none' })
       }
-    })
-  },
-
-  saveNotebooks: function () {
-    wx.setStorage({
-      key: 'notebooks',
-      data: this.data.notebooks
     })
   },
 
@@ -159,25 +161,47 @@ Page({
   },
 
   createNotebook: function (name, desc, icon) {
-    var notebook = {
-      _id: 'nb_' + Date.now(),
-      name: name,
-      description: desc,
-      customIcon: icon || '',
-      createdAt: Date.now(),
-      timeStr: this.formatTime(new Date())
+    var that = this
+    var userInfo = app.getUserInfo()
+    if (!userInfo || !userInfo.openId) {
+      wx.showToast({ title: '请先登录', icon: 'none' })
+      return
     }
 
-    var notebooks = this.data.notebooks.concat([notebook])
-    this.setData({ notebooks: notebooks })
-    this.saveNotebooks()
+    var db = wx.cloud.database()
+    db.collection('notebooks').add({
+      data: {
+        openId: userInfo.openId,
+        name: name,
+        description: desc,
+        customIcon: icon || '',
+        createdAt: db.serverDate()
+      },
+      success: function (res) {
+        var notebook = {
+          _id: res._id,
+          name: name,
+          description: desc,
+          customIcon: icon || '',
+          createdAt: Date.now(),
+          timeStr: that.formatTime(new Date())
+        }
 
-    if (this.data.notebooks.length === 1 || !app.getCurrentNotebookId()) {
-      app.setCurrentNotebook(notebook._id, notebook.name)
-      this.setData({ currentNotebookId: notebook._id })
-    }
+        var notebooks = that.data.notebooks.concat([notebook])
+        that.setData({ notebooks: notebooks })
 
-    wx.showToast({ title: '创建成功', icon: 'success' })
+        if (notebooks.length === 1 || !app.getCurrentNotebookId()) {
+          app.setCurrentNotebook(notebook._id, notebook.name)
+          that.setData({ currentNotebookId: notebook._id })
+        }
+
+        wx.showToast({ title: '创建成功', icon: 'success' })
+      },
+      fail: function (err) {
+        console.error('[账本] 创建失败:', err)
+        wx.showToast({ title: '创建失败', icon: 'none' })
+      }
+    })
   },
 
   // ========== 选择账本 ==========
@@ -205,41 +229,53 @@ Page({
       confirmColor: '#fb7185',
       success: function (res) {
         if (res.confirm) {
-          var notebooks = that.data.notebooks.filter(function (n) { return n._id !== id })
-          that.setData({ notebooks: notebooks })
-          that.saveNotebooks()
+          var db = wx.cloud.database()
 
-          // 如果删除的是当前账本
-          if (that.data.currentNotebookId === id) {
-            if (notebooks.length > 0) {
-              app.setCurrentNotebook(notebooks[0]._id, notebooks[0].name)
-              that.setData({ currentNotebookId: notebooks[0]._id })
-            } else {
-              app.setCurrentNotebook('', '')
-              that.setData({ currentNotebookId: '' })
+          // 删除账本
+          db.collection('notebooks').doc(id).remove({
+            success: function () {
+              var notebooks = that.data.notebooks.filter(function (n) { return n._id !== id })
+              that.setData({ notebooks: notebooks })
+
+              if (that.data.currentNotebookId === id) {
+                if (notebooks.length > 0) {
+                  app.setCurrentNotebook(notebooks[0]._id, notebooks[0].name)
+                  that.setData({ currentNotebookId: notebooks[0]._id })
+                } else {
+                  app.setCurrentNotebook('', '')
+                  that.setData({ currentNotebookId: '' })
+                }
+              }
+
+              // 删除该账本下的记账记录
+              that.deleteRecordsByNotebook(id)
+              wx.showToast({ title: '已删除', icon: 'none' })
+            },
+            fail: function (err) {
+              console.error('[账本] 删除失败:', err)
+              wx.showToast({ title: '删除失败', icon: 'none' })
             }
-          }
-
-          // 删除该账本下的记账记录
-          that.deleteRecordsByNotebook(id)
-
-          wx.showToast({ title: '已删除', icon: 'none' })
+          })
         }
       }
     })
   },
 
   deleteRecordsByNotebook: function (notebookId) {
-    var that = this
-    wx.getStorage({
-      key: 'account_records',
+    var userInfo = app.getUserInfo()
+    if (!userInfo || !userInfo.openId) return
+
+    var db = wx.cloud.database()
+    // 云数据库单次最多删除一条，需要先查出再逐条删
+    db.collection('records').where({
+      openId: userInfo.openId,
+      notebookId: notebookId
+    }).get({
       success: function (res) {
         var records = res.data || []
-        var filtered = records.filter(function (r) { return r.notebookId !== notebookId })
-        wx.setStorage({
-          key: 'account_records',
-          data: filtered
-        })
+        for (var i = 0; i < records.length; i++) {
+          db.collection('records').doc(records[i]._id).remove()
+        }
       }
     })
   },

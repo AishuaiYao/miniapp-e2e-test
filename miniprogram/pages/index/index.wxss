@@ -652,6 +652,12 @@ page {
   font-size: 32rpx;
   margin-right: 20rpx;
   flex-shrink: 0;
+  overflow: hidden;
+}
+
+.cat-icon-img {
+  width: 48rpx;
+  height: 48rpx;
 }
 
 .bg-income { background: rgba(187, 247, 208, 0.6); }
@@ -693,6 +699,13 @@ page {
   font-size: 22rpx;
   color: #64748b;
   transition: all 0.2s ease;
+  gap: 4rpx;
+}
+
+.tag-icon {
+  width: 22rpx;
+  height: 22rpx;
+  flex-shrink: 0;
 }
 
 .record-tag:active {

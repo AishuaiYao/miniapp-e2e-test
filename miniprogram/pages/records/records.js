@@ -15,11 +15,34 @@ Page({
     balance: 0
   },
 
+  categoryIcons: {
+    '餐饮': '/images/classification/餐饮.png',
+    '交通': '/images/classification/交通.png',
+    '购物': '/images/classification/购物.png',
+    '服饰': '/images/classification/服饰.png',
+    '娱乐': '/images/classification/游戏.png',
+    '住房': '/images/classification/住房.png',
+    '医疗': '/images/classification/医疗.png',
+    '教育': '/images/classification/教育.png',
+    '生活': '/images/classification/生活.png',
+    '社交': '/images/classification/社交.png',
+    '旅行': '/images/classification/旅行.png',
+    '运动': '/images/classification/运动.png',
+    '其他支出': '/images/classification/支出的其他.png',
+    '工资': '/images/classification/工资.png',
+    '奖金': '/images/classification/奖金.png',
+    '兼职': '/images/classification/兼职.png',
+    '投资': '/images/classification/投资.png',
+    '红包': '/images/classification/红包.png',
+    '退款': '/images/classification/退款.png',
+    '其他收入': '/images/classification/收入的其他.png'
+  },
+
   onLoad: function (options) {
     var data = app.tagFilterData || {}
     var type = data.filterType || ''
     var value = data.filterValue || ''
-    var title = type === 'date' ? value : (value ? '📍 ' + value : '记录')
+    var title = type === 'date' ? value : (value ? '定位 · ' + value : '记录')
 
     this.setData({
       filterType: type,
@@ -30,48 +53,39 @@ Page({
     wx.setNavigationBarTitle({ title: title })
     this.loadRecords(type, value)
 
-    // 用完清除
     app.tagFilterData = null
   },
 
   loadRecords: function (type, value) {
     var that = this
-    var notebookId = app.getCurrentNotebookId()
+    var userInfo = app.getUserInfo()
+    if (!userInfo || !userInfo.openId) {
+      wx.showToast({ title: '请先登录', icon: 'none' })
+      return
+    }
 
-    wx.getStorage({
-      key: 'account_records',
+    var db = wx.cloud.database()
+    var query = { openId: userInfo.openId }
+
+    if (type === 'date') {
+      query.time = db.RegExp({ regexp: '^' + value })
+    } else if (type === 'location') {
+      query.location = value
+    }
+
+    db.collection('records').where(query).orderBy('time', 'desc').get({
       success: function (res) {
-        var allRecords = res.data || []
-        var records = notebookId ? allRecords.filter(function (r) {
-          return r.notebookId === notebookId
-        }) : allRecords
-
-        if (type === 'date') {
-          records = records.filter(function (r) {
-            return (r.time || '').substring(0, 10) === value
-          })
-        } else if (type === 'location') {
-          records = records.filter(function (r) {
-            return r.location === value
-          })
-        }
-
-        var totalIncome = 0
-        var totalExpense = 0
+        var records = res.data || []
+        var icons = that.categoryIcons
         for (var i = 0; i < records.length; i++) {
-          if (records[i].type === 'income') {
-            totalIncome += records[i].amount
-          } else {
-            totalExpense += records[i].amount
-          }
+          records[i].categoryIcon = icons[records[i].category] || ''
         }
-
-        that.setData({
-          records: records,
-          totalIncome: round3(totalIncome),
-          totalExpense: round3(totalExpense),
-          balance: round3(totalIncome - totalExpense)
-        })
+        that.recalcStats(records)
+        that.setData({ records: records })
+      },
+      fail: function (err) {
+        console.error('[记录] 查询失败:', err)
+        wx.showToast({ title: '加载失败', icon: 'none' })
       }
     })
   },
@@ -84,44 +98,20 @@ Page({
       content: '确定删除这条记录？',
       success: function (res) {
         if (res.confirm) {
-          var records = that.data.records.filter(function (r) { return r.id !== id })
-          that.setData({ records: records })
-          that.saveAllRecords(records)
-          that.recalcStats(records)
+          var db = wx.cloud.database()
+          db.collection('records').doc(id).remove({
+            success: function () {
+              var records = that.data.records.filter(function (r) { return r._id !== id })
+              that.recalcStats(records)
+              that.setData({ records: records })
+              wx.showToast({ title: '已删除', icon: 'none' })
+            },
+            fail: function (err) {
+              console.error('[记录] 删除失败:', err)
+              wx.showToast({ title: '删除失败', icon: 'none' })
+            }
+          })
         }
-      }
-    })
-  },
-
-  saveAllRecords: function (currentFiltered) {
-    var that = this
-    var notebookId = this.data.filterType ? app.getCurrentNotebookId() : ''
-    wx.getStorage({
-      key: 'account_records',
-      success: function (res) {
-        var allRecords = res.data || []
-        var otherRecords = notebookId ? allRecords.filter(function (r) {
-          return r.notebookId !== notebookId
-        }) : []
-        var currentAll = notebookId ? allRecords.filter(function (r) {
-          return r.notebookId === notebookId
-        }) : allRecords
-
-        var deletedIds = {}
-        var filteredIds = {}
-        for (var i = 0; i < that.data.records.length; i++) {
-          filteredIds[that.data.records[i].id] = true
-        }
-        for (var j = 0; j < currentFiltered.length; j++) {
-          filteredIds[currentFiltered[j].id] = true
-        }
-
-        var kept = currentAll.filter(function (r) {
-          return filteredIds[r.id]
-        })
-
-        var merged = otherRecords.concat(kept)
-        wx.setStorage({ key: 'account_records', data: merged })
       }
     })
   },
@@ -136,6 +126,10 @@ Page({
         totalExpense += records[i].amount
       }
     }
-    this.setData({ totalIncome: round3(totalIncome), totalExpense: round3(totalExpense), balance: round3(totalIncome - totalExpense) })
+    this.setData({
+      totalIncome: round3(totalIncome),
+      totalExpense: round3(totalExpense),
+      balance: round3(totalIncome - totalExpense)
+    })
   }
 })

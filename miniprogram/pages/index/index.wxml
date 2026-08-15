@@ -133,14 +133,15 @@
         <view class="record-item" wx:for="{{filteredRecords}}" wx:key="id">
           <view class="record-item-left">
             <view class="record-cat-icon {{item.type === 'income' ? 'bg-income' : 'bg-expense'}}">
-              {{item.type === 'income' ? '💰' : '🧾'}}
+              <image wx:if="{{item.categoryIcon}}" class="cat-icon-img" src="{{item.categoryIcon}}" mode="aspectFit"></image>
+              <text wx:else>{{item.type === 'income' ? '💰' : '🧾'}}</text>
             </view>
             <view class="record-info">
               <view class="record-cat">{{item.category}}{{item.subCategory ? ' · ' + item.subCategory : ''}}</view>
               <view class="record-desc">{{item.description}}</view>
               <view class="record-tags">
                 <view class="record-tag" catchtap="onTagTap" data-type="time" data-value="{{item.time}}">{{item.time}}</view>
-                <view wx:if="{{item.location}}" class="record-tag" catchtap="onTagTap" data-type="location" data-value="{{item.location}}">📍{{item.location}}</view>
+                <view wx:if="{{item.location}}" class="record-tag" catchtap="onTagTap" data-type="location" data-value="{{item.location}}"><image class="tag-icon" src="/images/定位.png" mode="aspectFit"></image>{{item.location}}</view>
               </view>
             </view>
           </view>
