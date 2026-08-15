@@ -1,5 +1,9 @@
 var app = getApp()
 
+function round3(n) {
+  return Math.round(n * 1000) / 1000
+}
+
 Page({
   data: {
     filterType: '',
@@ -7,7 +11,8 @@ Page({
     title: '',
     records: [],
     totalIncome: 0,
-    totalExpense: 0
+    totalExpense: 0,
+    balance: 0
   },
 
   onLoad: function (options) {
@@ -63,8 +68,9 @@ Page({
 
         that.setData({
           records: records,
-          totalIncome: totalIncome,
-          totalExpense: totalExpense
+          totalIncome: round3(totalIncome),
+          totalExpense: round3(totalExpense),
+          balance: round3(totalIncome - totalExpense)
         })
       }
     })
@@ -130,6 +136,6 @@ Page({
         totalExpense += records[i].amount
       }
     }
-    this.setData({ totalIncome: totalIncome, totalExpense: totalExpense })
+    this.setData({ totalIncome: round3(totalIncome), totalExpense: round3(totalExpense), balance: round3(totalIncome - totalExpense) })
   }
 })

@@ -1,5 +1,9 @@
 var app = getApp()
 
+function round3(n) {
+  return Math.round(n * 1000) / 1000
+}
+
 Page({
   data: {
     // 导航栏
@@ -23,6 +27,7 @@ Page({
     totalIncome: 0,
     totalExpense: 0,
     balance: 0,
+    dateRange: '',
 
     // 饼状图数据
     pieData: [],
@@ -35,6 +40,7 @@ Page({
     // 当前账本
     currentNotebookId: '',
     currentNotebookName: '',
+    currentNotebookIcon: '',
     hasNotebook: false,
 
     // 文本输入弹窗
@@ -91,16 +97,32 @@ Page({
     // 每次显示页面时刷新当前账本
     var notebookId = app.getCurrentNotebookId()
     var notebookName = app.getCurrentNotebookName()
+
     this.setData({
       currentNotebookId: notebookId,
       currentNotebookName: notebookName,
       hasNotebook: !!notebookId
     })
 
-    // 重新加载记录（可能从其他页面切换回来）
+    // 加载当前账本图标
     if (notebookId) {
+      this.loadNotebookIcon(notebookId)
       this.loadRecords()
     }
+  },
+
+  loadNotebookIcon: function (notebookId) {
+    var that = this
+    wx.getStorage({
+      key: 'notebooks',
+      success: function (res) {
+        var notebooks = res.data || []
+        var current = notebooks.filter(function (n) { return n._id === notebookId })[0]
+        if (current) {
+          that.setData({ currentNotebookIcon: current.customIcon || '' })
+        }
+      }
+    })
   },
 
   checkRecordAuth: function () {
@@ -426,7 +448,7 @@ Page({
           var record = {
             id: Date.now(),
             type: result.type || 'expense',
-            amount: Math.round(result.amount * 1000) / 1000,
+            amount: round3(result.amount),
             category: result.category || '其他',
             subCategory: result.sub_category || '',
             description: result.description || '',
@@ -538,9 +560,10 @@ Page({
     for (var k in categoryMap) {
       // 把 subCategories 对象转成数组方便展示
       var stat = categoryMap[k]
+      stat.amount = round3(stat.amount)
       var subList = []
       for (var sk in stat.subCategories) {
-        subList.push({ name: sk, amount: stat.subCategories[sk] })
+        subList.push({ name: sk, amount: round3(stat.subCategories[sk]) })
       }
       subList.sort(function (a, b) { return b.amount - a.amount })
       stat.subList = subList
@@ -549,11 +572,22 @@ Page({
     // 按金额排序
     categoryStats.sort(function (a, b) { return b.amount - a.amount })
 
+    // 计算时间范围
+    var times = records.map(function (r) { return r.time || '' }).filter(function (t) { return t })
+    times.sort()
+    var dateRange = ''
+    if (times.length > 0) {
+      var start = times[0].substring(0, 10)
+      var end = times[times.length - 1].substring(0, 10)
+      dateRange = start === end ? start : start + ' ~ ' + end
+    }
+
     this.setData({
-      totalIncome: totalIncome,
-      totalExpense: totalExpense,
-      balance: totalIncome - totalExpense,
-      categoryStats: categoryStats
+      totalIncome: round3(totalIncome),
+      totalExpense: round3(totalExpense),
+      balance: round3(totalIncome - totalExpense),
+      categoryStats: categoryStats,
+      dateRange: dateRange
     })
 
     // 生成饼状图数据（只展示支出分类）
@@ -704,7 +738,7 @@ Page({
         ctx.textBaseline = 'middle'
         ctx.fillText('支出', cx, cy - 8)
         ctx.font = 'bold 14px sans-serif'
-        ctx.fillText('¥' + total, cx, cy + 10)
+        ctx.fillText('¥' + round3(total), cx, cy + 10)
 
         console.log('[饼图] 绘制完成')
       })

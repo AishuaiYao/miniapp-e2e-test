@@ -13,9 +13,10 @@ Component({
   data: {
     drawerHeaderPaddingTop: 40,
     menuItems: [
-      { name: '主页', icon: '🏠', path: '/pages/index/index' },
-      { name: '我的账本', icon: '📒', path: '/pages/notebooks/notebooks' },
-      { name: '我的账号', icon: '👤', path: '/pages/account/account' }
+      { name: '主页', icon: '/images/主页.png', path: '/pages/index/index' },
+      { name: '账本', icon: '/images/账本.png', path: '/pages/notebooks/notebooks' },
+      { name: '发现', icon: '/images/发现.png', path: '/pages/discover/discover' },
+      { name: '我', icon: '/images/我的.png', path: '/pages/account/account' }
     ]
   },
 

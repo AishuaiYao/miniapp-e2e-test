@@ -18,7 +18,8 @@
 
     <!-- 当前账本信息 -->
     <view class="notebook-bar" wx:if="{{hasNotebook}}">
-      <text class="notebook-bar-icon">📒</text>
+      <image wx:if="{{currentNotebookIcon}}" class="notebook-bar-icon" src="{{currentNotebookIcon}}" mode="aspectFit"></image>
+      <text wx:else class="notebook-bar-icon">📒</text>
       <text class="notebook-bar-name">{{currentNotebookName}}</text>
       <text class="notebook-bar-change" bind:tap="goToNotebooks">切换</text>
     </view>
@@ -97,6 +98,7 @@
     <!-- ====== 统计概览 ====== -->
     <view class="section stats-section" wx:if="{{records.length > 0}}">
       <view class="section-title">收支概览</view>
+      <view class="section-subtitle" wx:if="{{dateRange}}">{{dateRange}}</view>
       <view class="stats-cards">
         <view class="stat-card income-card">
           <text class="stat-label">收入</text>

@@ -13,7 +13,7 @@
       bind:tap="navigate"
       data-path="{{item.path}}"
     >
-      <text class="drawer-item-icon">{{item.icon}}</text>
+      <image class="drawer-item-icon" src="{{item.icon}}" mode="aspectFit"></image>
       <text class="drawer-item-text">{{item.name}}</text>
       <text class="drawer-item-arrow" wx:if="{{currentPath === item.path}}">●</text>
     </view>

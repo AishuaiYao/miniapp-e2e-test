@@ -9,10 +9,24 @@ Page({
     notebooks: [],
     currentNotebookId: '',
     // 创建弹窗
+    showTypeSelect: false,
     showCreate: false,
     newName: '',
     newDesc: '',
-    creating: false
+    customIcon: '',
+    creating: false,
+
+    // 预设账本类型
+    presetTypes: [
+      { name: '日常开销', icon: '/images/日常开销.png', desc: '日常生活支出' },
+      { name: '旅行账本', icon: '/images/旅行.png', desc: '旅途花销记录' },
+      { name: '育儿账本', icon: '/images/育儿.png', desc: '孩子相关支出' },
+      { name: '学习账本', icon: '/images/学习.png', desc: '学习培训费用' },
+      { name: '装修账本', icon: '/images/装修.png', desc: '房屋装修支出' },
+      { name: '婚礼账本', icon: '/images/结婚.png', desc: '结婚相关花销' },
+      { name: '医疗健康', icon: '/images/医疗.png', desc: '看病保健支出' },
+      { name: '聚餐账本', icon: '/images/团建聚餐.png', desc: '请客聚餐花销' }
+    ]
   },
 
   onLoad: function () {
@@ -72,15 +86,56 @@ Page({
   // ========== 创建账本 ==========
 
   showCreatePopup: function () {
+    this.setData({ showTypeSelect: true })
+  },
+
+  closeTypeSelect: function () {
+    this.setData({ showTypeSelect: false })
+  },
+
+  onSelectType: function (e) {
+    var name = e.currentTarget.dataset.name
+    var icon = e.currentTarget.dataset.icon
+    var desc = e.currentTarget.dataset.desc
+
     this.setData({
+      showTypeSelect: false,
+      newName: name,
+      newDesc: desc
+    })
+
+    this.createNotebook(name, desc, icon)
+  },
+
+  showCustomInput: function () {
+    this.setData({
+      showTypeSelect: false,
       showCreate: true,
       newName: '',
-      newDesc: ''
+      newDesc: '',
+      customIcon: ''
     })
   },
 
   closeCreate: function () {
-    this.setData({ showCreate: false })
+    this.setData({ showCreate: false, customIcon: '' })
+  },
+
+  onChooseIcon: function () {
+    var that = this
+    wx.chooseMedia({
+      count: 1,
+      mediaType: ['image'],
+      sourceType: ['album', 'camera'],
+      success: function (res) {
+        var tempPath = res.tempFiles[0].tempFilePath
+        that.setData({ customIcon: tempPath })
+      }
+    })
+  },
+
+  onRemoveIcon: function () {
+    this.setData({ customIcon: '' })
   },
 
   onNameInput: function (e) {
@@ -92,7 +147,6 @@ Page({
   },
 
   handleCreate: function () {
-    var that = this
     var name = this.data.newName.trim()
     if (!name) {
       wx.showToast({ title: '请输入账本名称', icon: 'none' })
@@ -100,24 +154,24 @@ Page({
     }
 
     this.setData({ creating: true })
+    this.createNotebook(name, this.data.newDesc.trim(), this.data.customIcon)
+    this.setData({ creating: false, showCreate: false, customIcon: '' })
+  },
 
+  createNotebook: function (name, desc, icon) {
     var notebook = {
       _id: 'nb_' + Date.now(),
       name: name,
-      description: this.data.newDesc.trim(),
+      description: desc,
+      customIcon: icon || '',
       createdAt: Date.now(),
       timeStr: this.formatTime(new Date())
     }
 
     var notebooks = this.data.notebooks.concat([notebook])
-    this.setData({
-      notebooks: notebooks,
-      creating: false,
-      showCreate: false
-    })
+    this.setData({ notebooks: notebooks })
     this.saveNotebooks()
 
-    // 如果是第一个账本，自动设为当前账本
     if (this.data.notebooks.length === 1 || !app.getCurrentNotebookId()) {
       app.setCurrentNotebook(notebook._id, notebook.name)
       this.setData({ currentNotebookId: notebook._id })

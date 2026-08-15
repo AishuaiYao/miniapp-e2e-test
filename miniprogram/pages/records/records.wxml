@@ -15,7 +15,7 @@
         </view>
         <view class="stat-card balance-card">
           <text class="stat-label">结余</text>
-          <text class="stat-amount">¥{{totalIncome - totalExpense}}</text>
+          <text class="stat-amount">¥{{balance}}</text>
         </view>
       </view>
     </view>

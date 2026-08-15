@@ -3,7 +3,8 @@
     "pages/index/index",
     "pages/notebooks/notebooks",
     "pages/account/account",
-    "pages/records/records"
+    "pages/records/records",
+    "pages/discover/discover"
   ],
   "window": {
     "navigationBarTitleText": "智能语音记账",

@@ -27,7 +27,10 @@
       data-id="{{item._id}}"
       data-name="{{item.name}}"
     >
-      <view class="notebook-icon">📒</view>
+      <view class="notebook-icon">
+        <image wx:if="{{item.customIcon}}" class="notebook-icon-img" src="{{item.customIcon}}" mode="aspectFill"></image>
+        <text wx:else>📒</text>
+      </view>
       <view class="notebook-info">
         <view class="notebook-name">{{item.name}}</view>
         <view class="notebook-desc">{{item.description || '暂无描述'}}</view>
@@ -50,11 +53,52 @@
     <button class="btn-create-first" bind:tap="showCreatePopup">创建账本</button>
   </view>
 
-  <!-- 创建账本弹窗 -->
+  <!-- 选择账本类型弹窗 -->
+  <view class="create-mask" wx:if="{{showTypeSelect}}" catchtouchmove="{{true}}">
+    <view class="type-popup">
+      <text class="create-title">选择账本类型</text>
+      <text class="create-desc">选择一种预设类型快速创建</text>
+
+      <view class="type-grid">
+        <view
+          class="type-card"
+          wx:for="{{presetTypes}}"
+          wx:key="name"
+          bind:tap="onSelectType"
+          data-name="{{item.name}}"
+          data-icon="{{item.icon}}"
+          data-desc="{{item.desc}}"
+        >
+          <image class="type-icon" src="{{item.icon}}" mode="aspectFit"></image>
+          <text class="type-name">{{item.name}}</text>
+          <text class="type-desc">{{item.desc}}</text>
+        </view>
+
+        <view class="type-card type-custom" bind:tap="showCustomInput">
+          <view class="type-icon">＋</view>
+          <text class="type-name">自定义</text>
+          <text class="type-desc">创建你自己的账本</text>
+        </view>
+      </view>
+
+      <view class="create-cancel" bind:tap="closeTypeSelect">取消</view>
+    </view>
+  </view>
+
+  <!-- 自定义创建账本弹窗 -->
   <view class="create-mask" wx:if="{{showCreate}}" catchtouchmove="{{true}}">
     <view class="create-popup">
       <text class="create-title">创建账本</text>
       <text class="create-desc">给你的账本起个名字</text>
+
+      <view class="icon-upload" bind:tap="onChooseIcon">
+        <image wx:if="{{customIcon}}" class="icon-preview" src="{{customIcon}}" mode="aspectFill"></image>
+        <view wx:else class="icon-placeholder">
+          <text class="icon-placeholder-text">📷</text>
+          <text class="icon-placeholder-hint">上传图标</text>
+        </view>
+      </view>
+      <view class="icon-remove" wx:if="{{customIcon}}" catch:tap="onRemoveIcon">移除</view>
 
       <view class="input-wrap">
         <input

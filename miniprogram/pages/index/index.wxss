@@ -104,8 +104,10 @@ page {
 }
 
 .notebook-bar-icon {
-  font-size: 32rpx;
+  width: 36rpx;
+  height: 36rpx;
   margin-right: 12rpx;
+  flex-shrink: 0;
 }
 
 .notebook-bar-name {
@@ -190,6 +192,13 @@ page {
   font-size: 34rpx;
   font-weight: 700;
   color: #475569;
+  margin-bottom: 8rpx;
+  padding-left: 8rpx;
+}
+
+.section-subtitle {
+  font-size: 24rpx;
+  color: #94a3b8;
   margin-bottom: 20rpx;
   padding-left: 8rpx;
 }

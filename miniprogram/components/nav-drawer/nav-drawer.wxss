@@ -97,10 +97,10 @@
 }
 
 .drawer-item-icon {
-  font-size: 36rpx;
+  width: 44rpx;
+  height: 44rpx;
   margin-right: 20rpx;
-  width: 48rpx;
-  text-align: center;
+  flex-shrink: 0;
 }
 
 .drawer-item-text {
