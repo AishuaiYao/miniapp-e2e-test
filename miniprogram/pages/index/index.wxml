@@ -128,7 +128,10 @@
             <view class="record-info">
               <view class="record-cat">{{item.category}}{{item.subCategory ? ' · ' + item.subCategory : ''}}</view>
               <view class="record-desc">{{item.description}}</view>
-              <view class="record-time">{{item.time}}<text wx:if="{{item.location}}" class="record-loc"> · 📍{{item.location}}</text></view>
+              <view class="record-tags">
+                <view class="record-tag" catchtap="onTagTap" data-type="time" data-value="{{item.time}}">{{item.time}}</view>
+                <view wx:if="{{item.location}}" class="record-tag" catchtap="onTagTap" data-type="location" data-value="{{item.location}}">📍{{item.location}}</view>
+              </view>
             </view>
           </view>
           <view class="record-item-right">
@@ -183,7 +186,7 @@
       <view class="text-modal-title">文本记账</view>
       <textarea
         class="text-modal-input"
-        placeholder="如：今天中午吃饭花了30块"
+        placeholder="如：刚刚在五道口买枣糕花费19.8元"
         placeholder-class="text-modal-placeholder"
         value="{{textInputValue}}"
         bindinput="onTextInputChange"

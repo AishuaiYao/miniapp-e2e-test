@@ -840,5 +840,18 @@ Page({
     this.setData({ textInputVisible: false })
   },
 
-  onModalStop: function () {}
+  onModalStop: function () {},
+
+  onTagTap: function (e) {
+    var type = e.currentTarget.dataset.type
+    var value = e.currentTarget.dataset.value
+
+    // 用全局变量传参，避免 URL 编码问题
+    app.tagFilterData = {
+      filterType: type === 'time' ? 'date' : 'location',
+      filterValue: type === 'time' ? value.substring(0, 10) : value
+    }
+
+    wx.navigateTo({ url: '/pages/records/records' })
+  }
 })

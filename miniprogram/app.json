@@ -2,7 +2,8 @@
   "pages": [
     "pages/index/index",
     "pages/notebooks/notebooks",
-    "pages/account/account"
+    "pages/account/account",
+    "pages/records/records"
   ],
   "window": {
     "navigationBarTitleText": "智能语音记账",
