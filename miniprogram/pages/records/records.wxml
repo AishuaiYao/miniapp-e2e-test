@@ -30,7 +30,10 @@
               <text wx:else>{{item.type === 'income' ? '💰' : '🧾'}}</text>
             </view>
             <view class="record-info">
-              <view class="record-cat">{{item.category}}{{item.subCategory ? ' · ' + item.subCategory : ''}}</view>
+              <view class="record-cat-row">
+                <view class="record-cat">{{item.category}}{{item.subCategory ? ' · ' + item.subCategory : ''}}</view>
+                <view class="record-image-btn" catchtap="onImageBtnTap" data-id="{{item._id}}" data-url="{{item.imageUrl}}" data-has="{{item.imageFileID ? '1' : ''}}">{{item.imageFileID ? '有图' : '配图'}}</view>
+              </view>
               <view class="record-desc">{{item.description}}</view>
               <view class="record-tags">
                 <view class="record-tag">
@@ -49,7 +52,7 @@
             <text class="record-amount {{item.type === 'income' ? 'text-income' : 'text-expense'}}">
               {{item.type === 'income' ? '+' : '-'}}¥{{item.amount}}
             </text>
-            <view class="record-del" catchtap="onDeleteRecord" data-id="{{item.id}}">✕</view>
+            <view class="record-del" catchtap="onDeleteRecord" data-id="{{item._id}}">✕</view>
           </view>
         </view>
       </view>
@@ -87,6 +90,17 @@
         <view class="date-edit-cancel" catchtap="closeDateEdit">取消</view>
         <view class="date-edit-confirm" catchtap="confirmDateEdit">确认</view>
       </view>
+    </view>
+  </view>
+
+  <!-- 图片预览弹窗 -->
+  <view class="image-preview-mask" wx:if="{{imagePreviewVisible}}" catchtap="closeImagePreview">
+    <view class="image-preview-card" catchtap="onModalStop">
+      <view class="image-preview-actions">
+        <view class="image-preview-change" catchtap="onAddImage" data-id="{{imagePreviewId}}">换图</view>
+        <view class="image-preview-delete" catchtap="onDeleteImage" data-id="{{imagePreviewId}}">删除</view>
+      </view>
+      <image class="image-preview-img" src="{{imagePreviewUrl}}" mode="aspectFit" bindtap="onPreviewImage" data-url="{{imagePreviewUrl}}"></image>
     </view>
   </view>
 </view>

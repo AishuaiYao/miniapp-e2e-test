@@ -137,7 +137,10 @@
               <text wx:else>{{item.type === 'income' ? '💰' : '🧾'}}</text>
             </view>
             <view class="record-info">
-              <view class="record-cat">{{item.category}}{{item.subCategory ? ' · ' + item.subCategory : ''}}</view>
+              <view class="record-cat-row">
+                <view class="record-cat">{{item.category}}{{item.subCategory ? ' · ' + item.subCategory : ''}}</view>
+                <view class="record-image-btn" catchtap="onImageBtnTap" data-id="{{item._id}}" data-url="{{item.imageUrl}}" data-has="{{item.imageFileID ? '1' : ''}}">{{item.imageFileID ? '有图' : '配图'}}</view>
+              </view>
               <view class="record-desc">{{item.description}}</view>
               <view class="record-tags">
                 <view class="record-tag" catchtap="onTagTap" data-type="time" data-value="{{item.time}}">
@@ -156,7 +159,7 @@
             <text class="record-amount {{item.type === 'income' ? 'text-income' : 'text-expense'}}">
               {{item.type === 'income' ? '+' : '-'}}¥{{item.amount}}
             </text>
-            <view class="record-del" catchtap="onDeleteRecord" data-id="{{item.id}}">✕</view>
+            <view class="record-del" catchtap="onDeleteRecord" data-id="{{item._id}}">✕</view>
           </view>
         </view>
 
@@ -192,9 +195,6 @@
                 <text class="legend-value">¥{{item.value}}</text>
                 <text class="legend-percent">{{item.percent}}%</text>
               </view>
-              <view class="legend-sub" wx:for="{{pieData}}" wx:key="index" wx:for-item="pie">
-                <text class="legend-sub-text" wx:if="{{pie.subText}}">{{pie.name}}{{pie.subText}}</text>
-              </view>
             </view>
           </view>
         </view>
@@ -206,9 +206,6 @@
         <view class="daily-card">
           <view class="calendar-header">
             <text class="calendar-month">{{calendarLabel}}</text>
-            <picker mode="date" fields="month" value="{{calendarMonth}}" bindchange="onCalendarMonthChange">
-              <text class="calendar-change">切换月份</text>
-            </picker>
           </view>
           <view class="weekday-row">
             <text wx:for="{{['日','一','二','三','四','五','六']}}" wx:key="*this">{{item}}</text>
@@ -282,6 +279,17 @@
   </view>
 
   <!-- 导航抽屉 -->
+  <!-- 图片预览弹窗 -->
+  <view class="image-preview-mask" wx:if="{{imagePreviewVisible}}" catchtap="closeImagePreview">
+    <view class="image-preview-card" catchtap="onModalStop">
+      <view class="image-preview-actions">
+        <view class="image-preview-change" catchtap="onAddImage" data-id="{{imagePreviewId}}">换图</view>
+        <view class="image-preview-delete" catchtap="onDeleteImage" data-id="{{imagePreviewId}}">删除</view>
+      </view>
+      <image class="image-preview-img" src="{{imagePreviewUrl}}" mode="aspectFit" bindtap="onPreviewImage" data-url="{{imagePreviewUrl}}"></image>
+    </view>
+  </view>
+
   <nav-drawer
     visible="{{drawerVisible}}"
     currentPath="/pages/index/index"

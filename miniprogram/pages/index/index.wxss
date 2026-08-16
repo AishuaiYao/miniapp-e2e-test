@@ -769,6 +769,12 @@ page {
   overflow: hidden;
 }
 
+.record-cat-row {
+  display: flex;
+  align-items: center;
+  gap: 10rpx;
+}
+
 .record-cat {
   font-size: 30rpx;
   font-weight: 600;
@@ -945,10 +951,75 @@ page {
   background: linear-gradient(135deg, #c4b5fd, #a78bfa);
 }
 
+.image-preview-mask {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(15, 23, 42, 0.5);
+}
+
+.image-preview-card {
+  position: relative;
+  width: 600rpx;
+  padding: 20rpx;
+  border-radius: 24rpx;
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(20rpx);
+}
+
+.image-preview-actions {
+  position: absolute;
+  top: 16rpx;
+  right: 16rpx;
+  z-index: 2;
+  display: flex;
+  gap: 12rpx;
+}
+
+.image-preview-change,
+.image-preview-delete {
+  padding: 8rpx 20rpx;
+  border-radius: 20rpx;
+  color: #fff;
+  font-size: 24rpx;
+}
+
+.image-preview-change {
+  background: linear-gradient(135deg, #c4b5fd, #a78bfa);
+}
+
+.image-preview-delete {
+  background: linear-gradient(135deg, #fda4af, #fb7185);
+}
+
+.image-preview-img {
+  width: 100%;
+  height: 600rpx;
+  border-radius: 16rpx;
+}
+
 .record-item-right {
   display: flex;
   align-items: center;
-  gap: 16rpx;
+  gap: 12rpx;
+}
+
+.record-image-btn {
+  padding: 6rpx 10rpx;
+  border-radius: 16rpx;
+  color: #7c3aed;
+  background: rgba(221, 214, 254, 0.5);
+  font-size: 20rpx;
+}
+
+.record-image-thumb {
+  width: 56rpx;
+  height: 56rpx;
+  border-radius: 12rpx;
+  background: rgba(241, 245, 249, 0.8);
 }
 
 .record-amount {

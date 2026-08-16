@@ -19,7 +19,11 @@ Page({
     dateEditValue: '',
     locationEditVisible: false,
     locationEditId: '',
-    locationEditValue: ''
+    locationEditValue: '',
+
+    imagePreviewVisible: false,
+    imagePreviewId: '',
+    imagePreviewUrl: ''
   },
 
   categoryIcons: {
@@ -87,14 +91,150 @@ Page({
         for (var i = 0; i < records.length; i++) {
           records[i].categoryIcon = icons[records[i].category] || ''
         }
-        that.recalcStats(records)
-        that.setData({ records: records })
+        that.resolveRecordImages(records, function () {
+          that.recalcStats(records)
+          that.setData({ records: records })
+        })
       },
       fail: function (err) {
         console.error('[记录] 查询失败:', err)
         wx.showToast({ title: '加载失败', icon: 'none' })
       }
     })
+  },
+
+  resolveRecordImages: function (records, callback) {
+    var pending = 0
+    for (var i = 0; i < records.length; i++) {
+      if (!records[i].imageFileID) continue
+      pending++
+      wx.cloud.getTempFileURL({
+        fileList: [records[i].imageFileID],
+        success: function (res) {
+          if (res.fileList && res.fileList[0]) {
+            for (var j = 0; j < records.length; j++) {
+              if (records[j].imageFileID === res.fileList[0].fileID) {
+                records[j].imageUrl = res.fileList[0].tempFileURL
+              }
+            }
+          }
+          pending--
+          if (pending === 0) callback()
+        },
+        fail: function () {
+          pending--
+          if (pending === 0) callback()
+        }
+      })
+    }
+    if (pending === 0) callback()
+  },
+
+  onAddImage: function (e) {
+    var that = this
+    var recordId = e.currentTarget.dataset.id
+    var oldRecord = this.data.records.filter(function (record) { return record._id === recordId })[0]
+    var oldImageFileID = oldRecord && oldRecord.imageFileID
+    wx.chooseMedia({
+      count: 1,
+      mediaType: ['image'],
+      sourceType: ['album', 'camera'],
+      success: function (res) {
+        wx.compressImage({
+          src: res.tempFiles[0].tempFilePath,
+          quality: 70,
+          compressedWidth: 800,
+          success: function (compressed) {
+            var userInfo = app.getUserInfo()
+            var cloudPath = 'images/' + userInfo.openId + '/' + recordId + '_' + Date.now() + '.jpg'
+            wx.cloud.uploadFile({
+              cloudPath: cloudPath,
+              filePath: compressed.tempFilePath,
+              success: function (uploadRes) {
+                var db = wx.cloud.database()
+                db.collection('records').doc(recordId).update({
+                  data: { imageFileID: uploadRes.fileID },
+                  success: function () {
+                    wx.cloud.getTempFileURL({
+                      fileList: [uploadRes.fileID],
+                      success: function (urlRes) {
+                        var url = urlRes.fileList[0].tempFileURL
+                        var records = that.data.records.map(function (record) {
+                          if (record._id === recordId) {
+                            record.imageFileID = uploadRes.fileID
+                            record.imageUrl = url
+                          }
+                          return record
+                        })
+                        that.setData({ records: records, imagePreviewVisible: false, imagePreviewUrl: url })
+                        if (oldImageFileID && oldImageFileID !== uploadRes.fileID) {
+                          wx.cloud.deleteFile({ fileList: [oldImageFileID] })
+                        }
+                        wx.showToast({ title: oldImageFileID ? '换图成功' : '配图成功', icon: 'success' })
+                      }
+                    })
+                  },
+                  fail: function () { wx.showToast({ title: '图片保存失败', icon: 'none' }) }
+                })
+              },
+              fail: function () { wx.showToast({ title: '图片上传失败', icon: 'none' }) }
+            })
+          }
+        })
+      }
+    })
+  },
+
+  onImageBtnTap: function (e) {
+    var has = e.currentTarget.dataset.has
+    var id = e.currentTarget.dataset.id
+    var url = e.currentTarget.dataset.url
+    if (!has) {
+      this.onAddImage({ currentTarget: { dataset: { id: id } } })
+      return
+    }
+    this.setData({ imagePreviewVisible: true, imagePreviewId: id, imagePreviewUrl: url })
+  },
+
+  closeImagePreview: function () {
+    this.setData({ imagePreviewVisible: false })
+  },
+
+  onDeleteImage: function (e) {
+    var that = this
+    var recordId = e.currentTarget.dataset.id
+    var oldRecord = this.data.records.filter(function (record) { return record._id === recordId })[0]
+    var fileID = oldRecord && oldRecord.imageFileID
+    if (!fileID) return
+
+    wx.showModal({
+      title: '提示',
+      content: '确定删除这张配图？',
+      success: function (res) {
+        if (!res.confirm) return
+        var db = wx.cloud.database()
+        db.collection('records').doc(recordId).update({
+          data: { imageFileID: '' },
+          success: function () {
+            wx.cloud.deleteFile({ fileList: [fileID] })
+            var records = that.data.records.map(function (record) {
+              if (record._id === recordId) {
+                record.imageFileID = ''
+                record.imageUrl = ''
+              }
+              return record
+            })
+            that.setData({ records: records, imagePreviewVisible: false })
+            wx.showToast({ title: '已删除', icon: 'success' })
+          },
+          fail: function () { wx.showToast({ title: '删除失败', icon: 'none' }) }
+        })
+      }
+    })
+  },
+
+  onPreviewImage: function (e) {
+    wx.previewImage({ current: e.currentTarget.dataset.url, urls: [e.currentTarget.dataset.url] })
   },
 
   onModalStop: function () {},
@@ -192,6 +332,8 @@ Page({
           var db = wx.cloud.database()
           db.collection('records').doc(id).remove({
             success: function () {
+              var deleted = that.data.records.filter(function (r) { return r._id === id })[0]
+              if (deleted && deleted.imageFileID) wx.cloud.deleteFile({ fileList: [deleted.imageFileID] })
               var records = that.data.records.filter(function (r) { return r._id !== id })
               that.recalcStats(records)
               that.setData({ records: records })
