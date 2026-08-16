@@ -41,7 +41,7 @@ Page({
       { key: '社交', name: '社交', icon: '🎉' },
       { key: '运动', name: '运动', icon: '⚽' }
     ],
-    activeCategory: 'all',
+    activeCategory: '旅行',
 
     // 排序
     sortOptions: [
@@ -172,6 +172,11 @@ Page({
     var key = e.currentTarget.dataset.key
     this.setData({ activeCategory: key })
     this.loadPosts()
+  },
+
+  onPostTap: function (e) {
+    var id = e.currentTarget.dataset.id
+    wx.navigateTo({ url: '/pages/post-detail/post-detail?postId=' + id })
   },
 
   onSortTap: function (e) {

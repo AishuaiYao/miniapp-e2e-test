@@ -4,7 +4,8 @@
     "pages/notebooks/notebooks",
     "pages/account/account",
     "pages/records/records",
-    "pages/discover/discover"
+    "pages/discover/discover",
+    "pages/post-detail/post-detail"
   ],
   "window": {
     "navigationBarTitleText": "智能语音记账",

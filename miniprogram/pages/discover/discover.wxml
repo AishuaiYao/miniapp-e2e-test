@@ -26,14 +26,13 @@
         bind:tap="onCategoryTap"
         data-key="{{item.key}}"
       >
-        <text class="category-icon">{{item.icon}}</text>
         <text class="category-name">{{item.name}}</text>
       </view>
     </scroll-view>
   </view>
 
   <!-- 排序栏 -->
-  <view class="sort-bar" style="top: {{navTotalHeight + 88}}px;">
+  <view class="sort-bar" style="top: {{navTotalHeight + 96}}px;">
     <view
       class="sort-item {{activeSort === item.key ? 'active' : ''}}"
       wx:for="{{sortOptions}}"
@@ -46,9 +45,9 @@
   </view>
 
   <!-- 博文列表 -->
-  <scroll-view scroll-y class="content-scroll" style="top: {{navTotalHeight + 136}}px;">
+  <scroll-view scroll-y class="content-scroll" style="top: {{navTotalHeight + 168}}px;">
     <view class="post-list">
-      <view class="post-card" wx:for="{{posts}}" wx:key="_id">
+      <view class="post-card" wx:for="{{posts}}" wx:key="_id" bind:tap="onPostTap" data-id="{{item._id}}">
         <!-- 作者信息 -->
         <view class="post-header">
           <view class="author-info">

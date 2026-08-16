@@ -21,6 +21,7 @@ exports.main = async (event, context) => {
   var action = event.action
 
   if (action === 'getPosts') return getPosts(OPENID, event)
+  if (action === 'getPost') return getPost(OPENID, event)
   if (action === 'createPost') return createPost(OPENID, event)
   if (action === 'deletePost') return deletePost(OPENID, event)
   if (action === 'toggleLike') return toggleLike(OPENID, event)
@@ -87,6 +88,30 @@ async function getPosts(openId, event) {
     }
   }
   return { success: true, posts: posts }
+}
+
+// 单篇博文详情
+async function getPost(openId, event) {
+  var post = null
+  try {
+    var postRes = await db.collection('posts').doc(event.postId).get()
+    post = postRes.data
+  } catch (e) {
+    // 文档不存在会抛错
+    post = null
+  }
+  if (!post) return { success: false, error: '博文不存在' }
+
+  post.isOwner = post.openId === openId
+
+  // 查询当前用户是否点赞
+  var likeRes = await db.collection('post_likes')
+    .where({ postId: event.postId, openId: openId })
+    .limit(1)
+    .get()
+  post.liked = likeRes.data.length > 0
+
+  return { success: true, post: post }
 }
 
 async function createPost(openId, event) {
