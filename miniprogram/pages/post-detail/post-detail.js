@@ -74,6 +74,11 @@ Page({
 
   // ========== 图片预览 ==========
 
+  // 头像加载失败（fileID 失效等）时，回退显示昵称首字占位
+  onAvatarError: function () {
+    this.setData({ 'post.authorAvatarUrl': '' })
+  },
+
   onPreviewImage: function (e) {
     var url = e.currentTarget.dataset.url
     wx.previewImage({ current: url, urls: this.data.post.imageUrls })

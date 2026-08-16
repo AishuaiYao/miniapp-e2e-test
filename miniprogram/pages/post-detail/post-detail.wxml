@@ -16,12 +16,12 @@
   </view>
 
   <!-- 博文内容 -->
-  <scroll-view scroll-y class="content-scroll" wx:if="{{post && !loading}}" style="top: {{navTotalHeight}}px;">
+  <scroll-view scroll-y class="content-scroll" wx:if="{{post && !loading}}" style="top: {{navTotalHeight}}px; bottom: 0;">
     <view class="post-detail">
       <!-- 作者信息 -->
       <view class="post-header">
         <view class="author-info">
-          <image wx:if="{{post.authorAvatarUrl}}" class="author-avatar" src="{{post.authorAvatarUrl}}" mode="aspectFill"></image>
+          <image wx:if="{{post.authorAvatarUrl}}" class="author-avatar" src="{{post.authorAvatarUrl}}" mode="aspectFill" binderror="onAvatarError"></image>
           <view wx:else class="author-avatar author-avatar-default">{{post.authorNickName ? post.authorNickName[0] : '?'}}</view>
           <view class="author-meta">
             <text class="author-name">{{post.authorNickName}}</text>

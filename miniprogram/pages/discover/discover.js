@@ -183,6 +183,14 @@ Page({
     wx.navigateTo({ url: '/pages/post-detail/post-detail?postId=' + id })
   },
 
+  // 头像加载失败（fileID 失效等）时，回退显示昵称首字占位
+  onAvatarError: function (e) {
+    var index = e.currentTarget.dataset.index
+    var patch = {}
+    patch['posts[' + index + '].authorAvatarUrl'] = ''
+    this.setData(patch)
+  },
+
   onSortTap: function (e) {
     var key = e.currentTarget.dataset.key
     this.setData({ activeSort: key })

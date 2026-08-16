@@ -24,6 +24,9 @@ page {
   display: flex;
   align-items: center;
   padding: 0 24rpx;
+  /* height 已含 padding-top(状态栏)，必须 border-box，否则实际总高多出状态栏高度，
+     内容区 top 对不上就会重叠 */
+  box-sizing: border-box;
   background: rgba(240, 249, 255, 0.85);
   backdrop-filter: blur(20rpx);
   -webkit-backdrop-filter: blur(20rpx);
@@ -59,7 +62,7 @@ page {
 
 .content-scroll {
   position: fixed;
-  left: 0; right: 0; bottom: 0;
+  left: 0; right: 0;
   z-index: 1;
   box-sizing: border-box;
 }

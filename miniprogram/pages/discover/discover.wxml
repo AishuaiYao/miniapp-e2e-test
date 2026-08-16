@@ -60,7 +60,7 @@
         <!-- 作者信息 -->
         <view class="post-header">
           <view class="author-info">
-            <image wx:if="{{item.authorAvatarUrl}}" class="author-avatar" src="{{item.authorAvatarUrl}}" mode="aspectFill"></image>
+            <image wx:if="{{item.authorAvatarUrl}}" class="author-avatar" src="{{item.authorAvatarUrl}}" mode="aspectFill" binderror="onAvatarError" data-index="{{index}}"></image>
             <view wx:else class="author-avatar author-avatar-default">{{item.authorNickName ? item.authorNickName[0] : '?'}}</view>
             <view class="author-meta">
               <text class="author-name">{{item.authorNickName}}</text>
