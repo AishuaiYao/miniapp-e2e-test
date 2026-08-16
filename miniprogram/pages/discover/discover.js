@@ -79,11 +79,15 @@ Page({
     comments: [],
     commentInput: '',
     replyTo: null,                // { id, openId, name }
-    loadingComments: false
+    loadingComments: false,
+    filterAreaHeight: 108
   },
 
   onLoad: function () {
-    this.setData(app.getNavBarLayout())
+    var sysInfo = wx.getSystemInfoSync()
+    this.setData(Object.assign(app.getNavBarLayout(), {
+      filterAreaHeight: 216 * sysInfo.windowWidth / 750
+    }))
   },
 
   onShow: function () {

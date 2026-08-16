@@ -82,37 +82,82 @@ page {
   transform: scale(0.95);
 }
 
-/* ========== 分类选择条 ========== */
+/* ========== 顶部筛选区容器 ========== */
 
-.category-bar {
+.top-filter-area {
   position: fixed;
   left: 0; right: 0;
   z-index: 9;
-  height: 96rpx;
   background: #ffffff;
-  border-bottom: 2rpx solid #e2e8f0;
+  box-shadow: 0 2rpx 12rpx rgba(15, 23, 42, 0.06);
+  display: flex;
+  flex-direction: column;
+}
+
+/* ========== 搜索框 ========== */
+
+.search-bar {
+  height: 72rpx;
+  padding: 0 24rpx;
+  box-sizing: border-box;
+  background: #ffffff;
+  border-bottom: 1rpx solid #f1f5f9;
   display: flex;
   align-items: center;
-  box-shadow: 0 2rpx 8rpx rgba(15, 23, 42, 0.04);
+}
+
+.search-box {
+  flex: 1;
+  height: 54rpx;
+  background: #f1f5f9;
+  border-radius: 27rpx;
+  display: flex;
+  align-items: center;
+  padding: 0 20rpx;
+  gap: 8rpx;
+}
+
+.search-icon {
+  font-size: 26rpx;
+}
+
+.search-input {
+  flex: 1;
+  font-size: 26rpx;
+  color: #334155;
+}
+
+.search-placeholder {
+  color: #94a3b8;
+  font-size: 26rpx;
+}
+
+/* ========== 分类选择条 ========== */
+
+.category-bar {
+  height: 80rpx;
+  background: #ffffff;
+  border-bottom: 1rpx solid #e2e8f0;
+  display: flex;
+  align-items: center;
 }
 
 .category-scroll {
   white-space: nowrap;
   width: 100%;
-  height: 96rpx;
+  height: 80rpx;
 }
 
 .category-item {
   display: inline-flex;
-  flex-direction: row;
   align-items: center;
   justify-content: center;
-  height: 96rpx;
-  padding: 0 32rpx;
+  height: 80rpx;
+  padding: 0 30rpx;
 }
 
 .category-name {
-  font-size: 28rpx;
+  font-size: 26rpx;
   color: #334155;
 }
 
@@ -128,11 +173,11 @@ page {
 .category-item.active::after {
   content: '';
   position: absolute;
-  bottom: 12rpx;
+  bottom: 10rpx;
   left: 50%;
   transform: translateX(-50%);
-  width: 40rpx;
-  height: 6rpx;
+  width: 36rpx;
+  height: 5rpx;
   border-radius: 3rpx;
   background: #38bdf8;
 }
@@ -140,18 +185,13 @@ page {
 /* ========== 排序栏 ========== */
 
 .sort-bar {
-  position: fixed;
-  left: 0; right: 0;
-  z-index: 8;
-  height: 72rpx;
+  height: 64rpx;
   display: flex;
   align-items: center;
   padding: 0 24rpx;
   gap: 32rpx;
-  background: rgba(255, 255, 255, 0.5);
-  backdrop-filter: blur(20rpx);
-  -webkit-backdrop-filter: blur(20rpx);
-  border-bottom: 1rpx solid rgba(255, 255, 255, 0.6);
+  background: #ffffff;
+  border-bottom: 1rpx solid #f1f5f9;
 }
 
 .sort-item {
@@ -188,7 +228,7 @@ page {
 }
 
 .post-list {
-  padding: 16rpx 24rpx;
+  padding: 0 24rpx 16rpx;
 }
 
 .post-card {

@@ -16,36 +16,47 @@
     </view>
   </view>
 
-  <!-- 分类选择条 -->
-  <view class="category-bar" style="top: {{navTotalHeight}}px;">
-    <scroll-view scroll-x class="category-scroll" enhanced show-scrollbar="{{false}}">
+  <!-- 顶部筛选区：搜索 + 分类 + 排序 -->
+  <view class="top-filter-area" style="top: {{navTotalHeight}}px; height: {{filterAreaHeight}}px;">
+    <!-- 搜索框 -->
+    <view class="search-bar">
+      <view class="search-box">
+        <text class="search-icon">🔍</text>
+        <input class="search-input" placeholder="搜索博文" placeholder-class="search-placeholder" disabled />
+      </view>
+    </view>
+
+    <!-- 分类选择条 -->
+    <view class="category-bar">
+      <scroll-view scroll-x class="category-scroll" enhanced show-scrollbar="{{false}}">
+        <view
+          class="category-item {{activeCategory === item.key ? 'active' : ''}}"
+          wx:for="{{categories}}"
+          wx:key="key"
+          bind:tap="onCategoryTap"
+          data-key="{{item.key}}"
+        >
+          <text class="category-name">{{item.name}}</text>
+        </view>
+      </scroll-view>
+    </view>
+
+    <!-- 排序栏 -->
+    <view class="sort-bar">
       <view
-        class="category-item {{activeCategory === item.key ? 'active' : ''}}"
-        wx:for="{{categories}}"
+        class="sort-item {{activeSort === item.key ? 'active' : ''}}"
+        wx:for="{{sortOptions}}"
         wx:key="key"
-        bind:tap="onCategoryTap"
+        bind:tap="onSortTap"
         data-key="{{item.key}}"
       >
-        <text class="category-name">{{item.name}}</text>
+        <text>{{item.name}}</text>
       </view>
-    </scroll-view>
-  </view>
-
-  <!-- 排序栏 -->
-  <view class="sort-bar" style="top: {{navTotalHeight + 96}}px;">
-    <view
-      class="sort-item {{activeSort === item.key ? 'active' : ''}}"
-      wx:for="{{sortOptions}}"
-      wx:key="key"
-      bind:tap="onSortTap"
-      data-key="{{item.key}}"
-    >
-      <text>{{item.name}}</text>
     </view>
   </view>
 
   <!-- 博文列表 -->
-  <scroll-view scroll-y class="content-scroll" style="top: {{navTotalHeight + 168}}px;">
+  <scroll-view scroll-y class="content-scroll" style="top: {{navTotalHeight + filterAreaHeight}}px;">
     <view class="post-list">
       <view class="post-card" wx:for="{{posts}}" wx:key="_id" bind:tap="onPostTap" data-id="{{item._id}}">
         <!-- 作者信息 -->
