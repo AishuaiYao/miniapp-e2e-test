@@ -1,5 +1,7 @@
 {
-  "usingComponents": {},
+  "usingComponents": {
+    "nav-drawer": "/components/nav-drawer/nav-drawer"
+  },
   "navigationBarTitleText": "发现",
   "navigationBarBackgroundColor": "#e0f2fe",
   "navigationBarTextStyle": "black"
