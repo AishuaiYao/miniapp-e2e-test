@@ -49,7 +49,14 @@ Page({
     currentNotebookId: '',
     currentNotebookName: '',
     currentNotebookIcon: '',
+    currentNotebookIsTeam: false,
+    currentNotebookMemberCount: 0,
     hasNotebook: false,
+
+    // 邀请加入流程
+    inviteId: '',
+    inviteInfo: null,
+    showInviteConfirm: false,
 
     // 文本输入弹窗
     textInputVisible: false,
@@ -80,7 +87,7 @@ Page({
   audioContext: null,
   playingIndex: -1,
 
-  onLoad: function () {
+  onLoad: function (options) {
     // 初始化导航栏尺寸
     var now = new Date()
     var currentMonth = now.getFullYear() + '-' + (now.getMonth() + 1).toString().padStart(2, '0')
@@ -119,9 +126,14 @@ Page({
 
     // 预检查录音权限
     this.checkRecordAuth()
+
+    // 处理分享落地邀请参数
+    if (options && options.inviteNotebookId) {
+      this.handleInvite(options.inviteNotebookId)
+    }
   },
 
-  onShow: function () {
+  onShow: function (options) {
     // 每次显示页面时刷新当前账本
     var notebookId = app.getCurrentNotebookId()
     var notebookName = app.getCurrentNotebookName()
@@ -137,19 +149,128 @@ Page({
       this.loadNotebookIcon(notebookId)
       this.loadRecords()
     }
+
+    // 热启动时通过 options 处理邀请
+    if (options && options.inviteNotebookId && !this.data.inviteId) {
+      this.handleInvite(options.inviteNotebookId)
+    }
+  },
+
+  // ========== 邀请加入流程 ==========
+
+  handleInvite: function (notebookId) {
+    this.setData({ inviteId: notebookId })
+    var userInfo = app.getUserInfo()
+    if (!userInfo || !userInfo.openId) {
+      // 未登录，暂存 notebookId，跳转登录，登录后回来继续
+      app.globalData.pendingInviteId = notebookId
+      var that = this
+      app.globalData.onLoginSuccess = function () {
+        var pid = app.globalData.pendingInviteId
+        if (pid) {
+          app.globalData.pendingInviteId = ''
+          that.handleInvite(pid)
+        }
+      }
+      wx.navigateTo({ url: '/pages/account/account' })
+      return
+    }
+    this.fetchInviteInfo(notebookId)
+  },
+
+  fetchInviteInfo: function (notebookId) {
+    var that = this
+    wx.cloud.callFunction({
+      name: 'team',
+      data: { action: 'getInviteInfo', notebookId: notebookId },
+      success: function (cfRes) {
+        var result = cfRes.result
+        if (!result || !result.success) {
+          wx.showToast({ title: result ? result.error : '邀请无效', icon: 'none' })
+          that.setData({ inviteId: '' })
+          return
+        }
+        if (result.invite.expired) {
+          wx.showModal({
+            title: '邀请已过期',
+            content: '该邀请超过 24 小时未确认，请联系对方重新邀请',
+            showCancel: false
+          })
+          that.setData({ inviteId: '' })
+          return
+        }
+        that.setData({ inviteInfo: result.invite, showInviteConfirm: true })
+      },
+      fail: function (err) {
+        console.error('[邀请] 查询失败:', err)
+        wx.showToast({ title: '邀请查询失败', icon: 'none' })
+        that.setData({ inviteId: '' })
+      }
+    })
+  },
+
+  confirmJoin: function () {
+    var that = this
+    var notebookId = this.data.inviteId
+    wx.cloud.callFunction({
+      name: 'team',
+      data: { action: 'joinNotebook', notebookId: notebookId },
+      success: function (cfRes) {
+        var result = cfRes.result
+        if (!result) {
+          wx.showToast({ title: '加入失败', icon: 'none' })
+          return
+        }
+        // 已是成员也算成功切换
+        if (!result.success && result.error !== 'already_joined') {
+          wx.showToast({ title: result.error || '加入失败', icon: 'none' })
+          return
+        }
+        var nb = result.notebook
+        app.setCurrentNotebook(nb._id, nb.name)
+        that.setData({
+          showInviteConfirm: false,
+          inviteId: '',
+          inviteInfo: null,
+          currentNotebookId: nb._id,
+          currentNotebookName: nb.name,
+          hasNotebook: true
+        })
+        wx.showToast({ title: '已加入账本', icon: 'success' })
+        that.loadNotebookIcon(nb._id)
+        that.loadRecords()
+      },
+      fail: function (err) {
+        console.error('[邀请] 加入失败:', err)
+        wx.showToast({ title: '加入失败', icon: 'none' })
+      }
+    })
+  },
+
+  cancelJoin: function () {
+    this.setData({ showInviteConfirm: false, inviteId: '', inviteInfo: null })
   },
 
   loadNotebookIcon: function (notebookId) {
     var that = this
-    var db = wx.cloud.database()
-    db.collection('notebooks').doc(notebookId).get({
-      success: function (res) {
-        if (res.data) {
-          that.setData({ currentNotebookIcon: res.data.customIcon || '' })
+    wx.cloud.callFunction({
+      name: 'team',
+      data: { action: 'getNotebookDetail', notebookId: notebookId },
+      success: function (cfRes) {
+        var result = cfRes.result
+        if (!result || !result.success) {
+          that.setData({ currentNotebookIcon: '', currentNotebookIsTeam: false })
+          return
         }
+        var nb = result.notebook
+        that.setData({
+          currentNotebookIcon: nb.customIcon || '',
+          currentNotebookIsTeam: !!nb.isTeam,
+          currentNotebookMemberCount: nb.memberCount || 1
+        })
       },
       fail: function () {
-        that.setData({ currentNotebookIcon: '' })
+        that.setData({ currentNotebookIcon: '', currentNotebookIsTeam: false })
       }
     })
   },
@@ -493,14 +614,11 @@ Page({
             return
           }
 
-          var db = wx.cloud.database()
           var nowTime = that2.formatTime(new Date())
           var extractedTime = result.transaction_time || ''
           var timePattern = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/
           var recordTime = timePattern.test(extractedTime) ? extractedTime : nowTime
           var recordData = {
-            openId: userInfo.openId,
-            notebookId: that2.data.currentNotebookId,
             type: result.type || 'expense',
             amount: round3(result.amount),
             category: result.category || '其他',
@@ -511,12 +629,22 @@ Page({
             raw: that2.data.asrText
           }
 
-          db.collection('records').add({
-            data: recordData,
-            success: function (res) {
-              recordData._id = res._id
-              recordData.categoryIcon = that2.categoryIcons[recordData.category] || ''
-              var records = [recordData].concat(that2.data.records)
+          wx.cloud.callFunction({
+            name: 'teamRecords',
+            data: {
+              action: 'addRecord',
+              notebookId: that2.data.currentNotebookId,
+              record: recordData
+            },
+            success: function (cfRes) {
+              var cfResult = cfRes.result
+              if (!cfResult || !cfResult.success) {
+                wx.showToast({ title: '保存失败', icon: 'none' })
+                return
+              }
+              var saved = cfResult.record
+              saved.categoryIcon = that2.categoryIcons[saved.category] || ''
+              var records = [saved].concat(that2.data.records)
               that2.setData({ records: records })
               that2.updateStats(records)
               that2.filterRecords()
@@ -542,13 +670,16 @@ Page({
     var userInfo = app.getUserInfo()
     if (!userInfo || !userInfo.openId || !notebookId) return
 
-    var db = wx.cloud.database()
-    db.collection('records').where({
-      openId: userInfo.openId,
-      notebookId: notebookId
-    }).orderBy('time', 'desc').get({
-      success: function (res) {
-        var records = res.data || []
+    wx.cloud.callFunction({
+      name: 'teamRecords',
+      data: { action: 'getRecords', notebookId: notebookId },
+      success: function (cfRes) {
+        var result = cfRes.result
+        if (!result || !result.success) {
+          console.error('[记录] 查询失败:', result ? result.error : 'no result')
+          return
+        }
+        var records = result.records || []
         var icons = that.categoryIcons
         for (var i = 0; i < records.length; i++) {
           records[i].categoryIcon = icons[records[i].category] || ''
@@ -950,10 +1081,19 @@ Page({
               cloudPath: cloudPath,
               filePath: compressed.tempFilePath,
               success: function (uploadRes) {
-                var db = wx.cloud.database()
-                db.collection('records').doc(recordId).update({
-                  data: { imageFileID: uploadRes.fileID },
-                  success: function () {
+                wx.cloud.callFunction({
+                  name: 'teamRecords',
+                  data: {
+                    action: 'updateImage',
+                    recordId: recordId,
+                    imageFileID: uploadRes.fileID
+                  },
+                  success: function (cfRes) {
+                    var cfResult = cfRes.result
+                    if (!cfResult || !cfResult.success) {
+                      wx.showToast({ title: cfResult ? cfResult.error : '图片保存失败', icon: 'none' })
+                      return
+                    }
                     wx.cloud.getTempFileURL({
                       fileList: [uploadRes.fileID],
                       success: function (urlRes) {
@@ -1012,10 +1152,15 @@ Page({
       content: '确定删除这张配图？',
       success: function (res) {
         if (!res.confirm) return
-        var db = wx.cloud.database()
-        db.collection('records').doc(recordId).update({
-          data: { imageFileID: '' },
-          success: function () {
+        wx.cloud.callFunction({
+          name: 'teamRecords',
+          data: { action: 'updateImage', recordId: recordId, imageFileID: '' },
+          success: function (cfRes) {
+            var cfResult = cfRes.result
+            if (!cfResult || !cfResult.success) {
+              wx.showToast({ title: cfResult ? cfResult.error : '删除失败', icon: 'none' })
+              return
+            }
             wx.cloud.deleteFile({ fileList: [fileID] })
             var records = that.data.records.map(function (record) {
               if (record._id === recordId) {
@@ -1046,11 +1191,16 @@ Page({
       content: '确定删除这条记录？',
       success: function (res) {
         if (res.confirm) {
-          var db = wx.cloud.database()
-          db.collection('records').doc(id).remove({
-            success: function () {
-              var deleted = that.data.records.filter(function (r) { return r._id === id })[0]
-              if (deleted && deleted.imageFileID) wx.cloud.deleteFile({ fileList: [deleted.imageFileID] })
+          wx.cloud.callFunction({
+            name: 'teamRecords',
+            data: { action: 'deleteRecord', recordId: id },
+            success: function (cfRes) {
+              var cfResult = cfRes.result
+              if (!cfResult || !cfResult.success) {
+                wx.showToast({ title: cfResult ? cfResult.error : '删除失败', icon: 'none' })
+                return
+              }
+              if (cfResult.imageFileID) wx.cloud.deleteFile({ fileList: [cfResult.imageFileID] })
               var records = that.data.records.filter(function (r) { return r._id !== id })
               that.setData({ records: records })
               that.updateStats(records)
@@ -1183,13 +1333,19 @@ Page({
     var that = this
     var oldTime = this.data.dateEditOldTime
     var newTime = this.data.dateEditValue + ' ' + oldTime.substring(11, 16)
-    var db = wx.cloud.database()
+    var recordId = this.data.dateEditId
 
-    db.collection('records').doc(this.data.dateEditId).update({
-      data: { time: newTime },
-      success: function () {
+    wx.cloud.callFunction({
+      name: 'teamRecords',
+      data: { action: 'updateRecord', recordId: recordId, update: { time: newTime } },
+      success: function (cfRes) {
+        var cfResult = cfRes.result
+        if (!cfResult || !cfResult.success) {
+          wx.showToast({ title: cfResult ? cfResult.error : '更新失败', icon: 'none' })
+          return
+        }
         var records = that.data.records.map(function (record) {
-          if (record._id === that.data.dateEditId) record.time = newTime
+          if (record._id === recordId) record.time = newTime
           return record
         })
         that.setData({ records: records, dateEditVisible: false })
@@ -1224,11 +1380,16 @@ Page({
     var that = this
     var location = this.data.locationEditValue.trim()
     var id = this.data.locationEditId
-    var db = wx.cloud.database()
 
-    db.collection('records').doc(id).update({
-      data: { location: location },
-      success: function () {
+    wx.cloud.callFunction({
+      name: 'teamRecords',
+      data: { action: 'updateRecord', recordId: id, update: { location: location } },
+      success: function (cfRes) {
+        var cfResult = cfRes.result
+        if (!cfResult || !cfResult.success) {
+          wx.showToast({ title: cfResult ? cfResult.error : '更新失败', icon: 'none' })
+          return
+        }
         var records = that.data.records.map(function (record) {
           if (record._id === id) record.location = location
           return record

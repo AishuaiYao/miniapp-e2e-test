@@ -75,18 +75,24 @@ Page({
       return
     }
 
-    var db = wx.cloud.database()
-    var query = { openId: userInfo.openId }
-
-    if (type === 'date') {
-      query.time = db.RegExp({ regexp: '^' + value })
-    } else if (type === 'location') {
-      query.location = value
-    }
-
-    db.collection('records').where(query).orderBy('time', 'desc').get({
-      success: function (res) {
-        var records = res.data || []
+    var notebookId = app.getCurrentNotebookId()
+    wx.cloud.callFunction({
+      name: 'teamRecords',
+      data: { action: 'getRecords', notebookId: notebookId },
+      success: function (cfRes) {
+        var result = cfRes.result
+        if (!result || !result.success) {
+          wx.showToast({ title: result ? result.error : '加载失败', icon: 'none' })
+          return
+        }
+        var allRecords = result.records || []
+        var records = allRecords
+        // 客户端按 type/value 再过滤（保持原行为）
+        if (type === 'date') {
+          records = allRecords.filter(function (r) { return (r.time || '').indexOf(value) === 0 })
+        } else if (type === 'location') {
+          records = allRecords.filter(function (r) { return r.location === value })
+        }
         var icons = that.categoryIcons
         for (var i = 0; i < records.length; i++) {
           records[i].categoryIcon = icons[records[i].category] || ''
@@ -151,10 +157,19 @@ Page({
               cloudPath: cloudPath,
               filePath: compressed.tempFilePath,
               success: function (uploadRes) {
-                var db = wx.cloud.database()
-                db.collection('records').doc(recordId).update({
-                  data: { imageFileID: uploadRes.fileID },
-                  success: function () {
+                wx.cloud.callFunction({
+                  name: 'teamRecords',
+                  data: {
+                    action: 'updateImage',
+                    recordId: recordId,
+                    imageFileID: uploadRes.fileID
+                  },
+                  success: function (cfRes) {
+                    var cfResult = cfRes.result
+                    if (!cfResult || !cfResult.success) {
+                      wx.showToast({ title: cfResult ? cfResult.error : '图片保存失败', icon: 'none' })
+                      return
+                    }
                     wx.cloud.getTempFileURL({
                       fileList: [uploadRes.fileID],
                       success: function (urlRes) {
@@ -212,10 +227,15 @@ Page({
       content: '确定删除这张配图？',
       success: function (res) {
         if (!res.confirm) return
-        var db = wx.cloud.database()
-        db.collection('records').doc(recordId).update({
-          data: { imageFileID: '' },
-          success: function () {
+        wx.cloud.callFunction({
+          name: 'teamRecords',
+          data: { action: 'updateImage', recordId: recordId, imageFileID: '' },
+          success: function (cfRes) {
+            var cfResult = cfRes.result
+            if (!cfResult || !cfResult.success) {
+              wx.showToast({ title: cfResult ? cfResult.error : '删除失败', icon: 'none' })
+              return
+            }
             wx.cloud.deleteFile({ fileList: [fileID] })
             var records = that.data.records.map(function (record) {
               if (record._id === recordId) {
@@ -261,13 +281,19 @@ Page({
     var that = this
     var oldTime = this.data.dateEditOldTime
     var newTime = this.data.dateEditValue + ' ' + oldTime.substring(11, 16)
-    var db = wx.cloud.database()
+    var recordId = this.data.dateEditId
 
-    db.collection('records').doc(this.data.dateEditId).update({
-      data: { time: newTime },
-      success: function () {
+    wx.cloud.callFunction({
+      name: 'teamRecords',
+      data: { action: 'updateRecord', recordId: recordId, update: { time: newTime } },
+      success: function (cfRes) {
+        var cfResult = cfRes.result
+        if (!cfResult || !cfResult.success) {
+          wx.showToast({ title: cfResult ? cfResult.error : '更新失败', icon: 'none' })
+          return
+        }
         var records = that.data.records.map(function (record) {
-          if (record._id === that.data.dateEditId) record.time = newTime
+          if (record._id === recordId) record.time = newTime
           return record
         })
         that.setData({ records: records, dateEditVisible: false })
@@ -301,11 +327,16 @@ Page({
     var that = this
     var location = this.data.locationEditValue.trim()
     var id = this.data.locationEditId
-    var db = wx.cloud.database()
 
-    db.collection('records').doc(id).update({
-      data: { location: location },
-      success: function () {
+    wx.cloud.callFunction({
+      name: 'teamRecords',
+      data: { action: 'updateRecord', recordId: id, update: { location: location } },
+      success: function (cfRes) {
+        var cfResult = cfRes.result
+        if (!cfResult || !cfResult.success) {
+          wx.showToast({ title: cfResult ? cfResult.error : '更新失败', icon: 'none' })
+          return
+        }
         var records = that.data.records.map(function (record) {
           if (record._id === id) record.location = location
           return record
@@ -329,11 +360,16 @@ Page({
       content: '确定删除这条记录？',
       success: function (res) {
         if (res.confirm) {
-          var db = wx.cloud.database()
-          db.collection('records').doc(id).remove({
-            success: function () {
-              var deleted = that.data.records.filter(function (r) { return r._id === id })[0]
-              if (deleted && deleted.imageFileID) wx.cloud.deleteFile({ fileList: [deleted.imageFileID] })
+          wx.cloud.callFunction({
+            name: 'teamRecords',
+            data: { action: 'deleteRecord', recordId: id },
+            success: function (cfRes) {
+              var cfResult = cfRes.result
+              if (!cfResult || !cfResult.success) {
+                wx.showToast({ title: cfResult ? cfResult.error : '删除失败', icon: 'none' })
+                return
+              }
+              if (cfResult.imageFileID) wx.cloud.deleteFile({ fileList: [cfResult.imageFileID] })
               var records = that.data.records.filter(function (r) { return r._id !== id })
               that.recalcStats(records)
               that.setData({ records: records })

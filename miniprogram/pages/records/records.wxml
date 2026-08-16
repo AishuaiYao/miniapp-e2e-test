@@ -35,6 +35,7 @@
                 <view class="record-image-btn" catchtap="onImageBtnTap" data-id="{{item._id}}" data-url="{{item.imageUrl}}" data-has="{{item.imageFileID ? '1' : ''}}">{{item.imageFileID ? '有图' : '配图'}}</view>
               </view>
               <view class="record-desc">{{item.description}}</view>
+              <view class="record-from" wx:if="{{item.creatorNickName}}">来自 {{item.creatorNickName}}</view>
               <view class="record-tags">
                 <view class="record-tag">
                   <text>{{item.time}}</text>

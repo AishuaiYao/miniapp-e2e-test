@@ -103,7 +103,7 @@ Page({
     })
   },
 
-  queryAndSaveUser: function (db, openId, nickName, avatarUrl) {
+      queryAndSaveUser: function (db, openId, nickName, avatarUrl) {
     var that = this
     db.collection('users').where({ openId: openId }).get({
       success: function (queryRes) {
@@ -132,6 +132,7 @@ Page({
                 avatarUrl: '',
                 nickName: ''
               })
+              that.notifyLoginSuccess()
               wx.showToast({ title: '登录成功', icon: 'success' })
             },
             fail: function (err) {
@@ -159,6 +160,7 @@ Page({
                 avatarUrl: '',
                 nickName: ''
               })
+              that.notifyLoginSuccess()
               wx.showToast({ title: '登录成功', icon: 'success' })
             },
             fail: function (err) {
@@ -194,6 +196,7 @@ Page({
               avatarUrl: '',
               nickName: ''
             })
+            that.notifyLoginSuccess()
             wx.showToast({ title: '登录成功', icon: 'success' })
           },
           fail: function (err) {
@@ -204,6 +207,15 @@ Page({
         })
       }
     })
+  },
+
+  // 登录成功后触发邀请流程回调
+  notifyLoginSuccess: function () {
+    if (typeof app.globalData.onLoginSuccess === 'function') {
+      var cb = app.globalData.onLoginSuccess
+      app.globalData.onLoginSuccess = null
+      setTimeout(function () { cb() }, 500)
+    }
   },
 
   handleLogout: function () {

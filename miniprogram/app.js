@@ -6,7 +6,9 @@ App({
     currentNotebookName: '',
     statusBarHeight: 0,
     navBarHeight: 0,
-    navTotalHeight: 0
+    navTotalHeight: 0,
+    pendingInviteId: '',          // 待处理的邀请 ID（登录后继续）
+    onLoginSuccess: null          // 登录成功回调（用于邀请流程）
   },
 
   onLaunch: function () {

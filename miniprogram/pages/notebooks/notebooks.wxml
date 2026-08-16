@@ -32,13 +32,26 @@
         <text wx:else>📒</text>
       </view>
       <view class="notebook-info">
-        <view class="notebook-name">{{item.name}}</view>
+        <view class="notebook-name-row">
+          <text class="notebook-name">{{item.name}}</text>
+          <text class="notebook-type-icon">{{item.isTeam ? '👥' : '👤'}}</text>
+          <view class="notebook-team-tag" wx:if="{{item.isTeam}}">多人 · {{item.memberText}}</view>
+          <view class="notebook-solo-tag" wx:else>个人</view>
+        </view>
         <view class="notebook-desc">{{item.description || '暂无描述'}}</view>
         <view class="notebook-time">创建于 {{item.timeStr}}</view>
       </view>
       <view class="notebook-status">
         <view class="notebook-current-tag" wx:if="{{currentNotebookId === item._id}}">当前</view>
         <view class="notebook-actions">
+          <button
+            wx:if="{{item.isOwner}}"
+            class="notebook-invite-btn"
+            open-type="share"
+            data-id="{{item._id}}"
+            data-name="{{item.name}}"
+          >邀请</button>
+          <view class="notebook-member" catch:tap="onShowMembers" data-id="{{item._id}}">成员</view>
           <view class="notebook-del" catch:tap="onDeleteNotebook" data-id="{{item._id}}" data-name="{{item.name}}">删除</view>
         </view>
       </view>
@@ -130,6 +143,28 @@
       </button>
 
       <view class="create-cancel" bind:tap="closeCreate">取消</view>
+    </view>
+  </view>
+
+  <!-- 成员管理弹窗 -->
+  <view class="create-mask" wx:if="{{showMembers}}" catchtouchmove="{{true}}">
+    <view class="members-popup">
+      <text class="create-title">成员管理</text>
+      <text class="create-desc">{{memberNotebook.name}} · 共 {{memberNotebook.memberCount}} 人</text>
+
+      <view class="members-list">
+        <view class="member-item" wx:for="{{memberNotebook.members}}" wx:key="openId">
+          <image class="member-avatar" wx:if="{{item.avatarUrl}}" src="{{item.avatarUrl}}" mode="aspectFill"></image>
+          <view wx:else class="member-avatar member-avatar-default">{{item.nickName ? item.nickName[0] : '?'}}</view>
+          <view class="member-info">
+            <text class="member-name">{{item.nickName}}</text>
+            <text class="member-role" wx:if="{{item.isOwner}}">创建者</text>
+          </view>
+          <view class="member-remove" wx:if="{{memberNotebook.isOwner && !item.isOwner}}" catch:tap="onRemoveMember" data-openid="{{item.openId}}">移除</view>
+        </view>
+      </view>
+
+      <view class="create-cancel" bind:tap="closeMembers">关闭</view>
     </view>
   </view>
 

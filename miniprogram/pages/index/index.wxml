@@ -21,6 +21,9 @@
       <image wx:if="{{currentNotebookIcon}}" class="notebook-bar-icon" src="{{currentNotebookIcon}}" mode="aspectFit"></image>
       <text wx:else class="notebook-bar-icon">📒</text>
       <text class="notebook-bar-name">{{currentNotebookName}}</text>
+      <text class="notebook-type-icon">{{currentNotebookIsTeam ? '👥' : '👤'}}</text>
+      <view class="notebook-team-badge" wx:if="{{currentNotebookIsTeam}}">多人 · {{currentNotebookMemberCount}}人</view>
+      <view class="notebook-solo-badge" wx:else>个人</view>
       <text class="notebook-bar-change" bind:tap="goToNotebooks">切换</text>
     </view>
 
@@ -142,6 +145,7 @@
                 <view class="record-image-btn" catchtap="onImageBtnTap" data-id="{{item._id}}" data-url="{{item.imageUrl}}" data-has="{{item.imageFileID ? '1' : ''}}">{{item.imageFileID ? '有图' : '配图'}}</view>
               </view>
               <view class="record-desc">{{item.description}}</view>
+              <view class="record-from" wx:if="{{currentNotebookIsTeam && item.creatorNickName}}">来自 {{item.creatorNickName}}</view>
               <view class="record-tags">
                 <view class="record-tag" catchtap="onTagTap" data-type="time" data-value="{{item.time}}">
                   <text>{{item.time}}</text>
@@ -287,6 +291,22 @@
         <view class="image-preview-delete" catchtap="onDeleteImage" data-id="{{imagePreviewId}}">删除</view>
       </view>
       <image class="image-preview-img" src="{{imagePreviewUrl}}" mode="aspectFit" bindtap="onPreviewImage" data-url="{{imagePreviewUrl}}"></image>
+    </view>
+  </view>
+
+  <!-- 邀请加入确认弹窗 -->
+  <view class="invite-mask" wx:if="{{showInviteConfirm}}" catchtap="cancelJoin">
+    <view class="invite-card" catchtap="onModalStop">
+      <text class="invite-title">加入账本</text>
+      <view class="invite-content">
+        <text class="invite-name">{{inviteInfo.notebookName}}</text>
+        <text class="invite-inviter">{{inviteInfo.inviterNickName}} 邀请你一起记账</text>
+        <text class="invite-hint">加入后双方可以共同查看、添加记录</text>
+      </view>
+      <view class="invite-actions">
+        <view class="invite-cancel" catchtap="cancelJoin">取消</view>
+        <view class="invite-confirm" catchtap="confirmJoin">确认加入</view>
+      </view>
     </view>
   </view>
 

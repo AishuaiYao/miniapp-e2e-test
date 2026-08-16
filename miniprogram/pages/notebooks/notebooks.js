@@ -15,8 +15,10 @@ Page({
     newDesc: '',
     customIcon: '',
     creating: false,
+    // 成员管理
+    showMembers: false,
+    memberNotebook: null,
 
-    // 预设账本类型
     presetTypes: [
       { name: '日常开销', icon: '/images/日常开销.png', desc: '日常生活支出' },
       { name: '旅行账本', icon: '/images/旅行.png', desc: '旅途花销记录' },
@@ -63,19 +65,25 @@ Page({
       return
     }
 
-    var db = wx.cloud.database()
-    db.collection('notebooks').where({ openId: userInfo.openId }).orderBy('createdAt', 'asc').get({
+    wx.cloud.callFunction({
+      name: 'team',
+      data: { action: 'getNotebooks' },
       success: function (res) {
-        var notebooks = res.data || []
+        var result = res.result
+        if (!result || !result.success) {
+          wx.showToast({ title: '加载失败', icon: 'none' })
+          return
+        }
+        var notebooks = result.notebooks || []
         for (var i = 0; i < notebooks.length; i++) {
           if (notebooks[i].createdAt) {
             notebooks[i].timeStr = that.formatTime(new Date(notebooks[i].createdAt))
           }
+          notebooks[i].memberText = notebooks[i].memberCount + '人'
         }
-        var currentNotebookId = app.getCurrentNotebookId()
         that.setData({
           notebooks: notebooks,
-          currentNotebookId: currentNotebookId
+          currentNotebookId: app.getCurrentNotebookId()
         })
       },
       fail: function (err) {
@@ -157,7 +165,6 @@ Page({
 
     this.setData({ creating: true })
     this.createNotebook(name, this.data.newDesc.trim(), this.data.customIcon)
-    this.setData({ creating: false, showCreate: false, customIcon: '' })
   },
 
   createNotebook: function (name, desc, icon) {
@@ -168,38 +175,29 @@ Page({
       return
     }
 
-    var db = wx.cloud.database()
-    db.collection('notebooks').add({
+    wx.cloud.callFunction({
+      name: 'team',
       data: {
-        openId: userInfo.openId,
+        action: 'createNotebook',
         name: name,
         description: desc,
-        customIcon: icon || '',
-        createdAt: db.serverDate()
+        customIcon: icon || ''
       },
       success: function (res) {
-        var notebook = {
-          _id: res._id,
-          name: name,
-          description: desc,
-          customIcon: icon || '',
-          createdAt: Date.now(),
-          timeStr: that.formatTime(new Date())
+        var result = res.result
+        if (!result || !result.success) {
+          wx.showToast({ title: '创建失败', icon: 'none' })
+          that.setData({ creating: false })
+          return
         }
-
-        var notebooks = that.data.notebooks.concat([notebook])
-        that.setData({ notebooks: notebooks })
-
-        if (notebooks.length === 1 || !app.getCurrentNotebookId()) {
-          app.setCurrentNotebook(notebook._id, notebook.name)
-          that.setData({ currentNotebookId: notebook._id })
-        }
-
+        that.setData({ creating: false, showCreate: false, customIcon: '' })
+        that.loadNotebooks()
         wx.showToast({ title: '创建成功', icon: 'success' })
       },
       fail: function (err) {
         console.error('[账本] 创建失败:', err)
         wx.showToast({ title: '创建失败', icon: 'none' })
+        that.setData({ creating: false })
       }
     })
   },
@@ -229,11 +227,15 @@ Page({
       confirmColor: '#fb7185',
       success: function (res) {
         if (res.confirm) {
-          var db = wx.cloud.database()
-
-          // 删除账本
-          db.collection('notebooks').doc(id).remove({
-            success: function () {
+          wx.cloud.callFunction({
+            name: 'team',
+            data: { action: 'deleteNotebook', notebookId: id },
+            success: function (cfRes) {
+              var result = cfRes.result
+              if (!result || !result.success) {
+                wx.showToast({ title: result ? result.error : '删除失败', icon: 'none' })
+                return
+              }
               var notebooks = that.data.notebooks.filter(function (n) { return n._id !== id })
               that.setData({ notebooks: notebooks })
 
@@ -246,9 +248,6 @@ Page({
                   that.setData({ currentNotebookId: '' })
                 }
               }
-
-              // 删除该账本下的记账记录
-              that.deleteRecordsByNotebook(id)
               wx.showToast({ title: '已删除', icon: 'none' })
             },
             fail: function (err) {
@@ -261,23 +260,87 @@ Page({
     })
   },
 
-  deleteRecordsByNotebook: function (notebookId) {
-    var userInfo = app.getUserInfo()
-    if (!userInfo || !userInfo.openId) return
+  // ========== 成员管理 ==========
 
-    var db = wx.cloud.database()
-    // 云数据库单次最多删除一条，需要先查出再逐条删
-    db.collection('records').where({
-      openId: userInfo.openId,
-      notebookId: notebookId
-    }).get({
-      success: function (res) {
-        var records = res.data || []
-        for (var i = 0; i < records.length; i++) {
-          db.collection('records').doc(records[i]._id).remove()
+  onShowMembers: function (e) {
+    var id = e.currentTarget.dataset.id
+    var that = this
+    wx.cloud.callFunction({
+      name: 'team',
+      data: { action: 'getNotebookDetail', notebookId: id },
+      success: function (cfRes) {
+        var result = cfRes.result
+        if (!result || !result.success) {
+          wx.showToast({ title: result ? result.error : '加载失败', icon: 'none' })
+          return
         }
+        that.setData({ showMembers: true, memberNotebook: result.notebook })
+      },
+      fail: function (err) {
+        console.error('[成员] 加载失败:', err)
+        wx.showToast({ title: '加载失败', icon: 'none' })
       }
     })
+  },
+
+  closeMembers: function () {
+    this.setData({ showMembers: false, memberNotebook: null })
+  },
+
+  onRemoveMember: function (e) {
+    var memberOpenId = e.currentTarget.dataset.openid
+    var notebookId = this.data.memberNotebook._id
+    var that = this
+
+    wx.showModal({
+      title: '移除成员',
+      content: '确定移除该成员？',
+      confirmColor: '#fb7185',
+      success: function (res) {
+        if (!res.confirm) return
+        wx.cloud.callFunction({
+          name: 'team',
+          data: { action: 'removeMember', notebookId: notebookId, memberOpenId: memberOpenId },
+          success: function (cfRes) {
+            var result = cfRes.result
+            if (!result || !result.success) {
+              wx.showToast({ title: result ? result.error : '移除失败', icon: 'none' })
+              return
+            }
+            var nb = that.data.memberNotebook
+            nb.members = nb.members.filter(function (m) { return m.openId !== memberOpenId })
+            nb.memberCount = nb.members.length
+            nb.isTeam = nb.memberCount > 1
+            that.setData({ memberNotebook: nb })
+            that.loadNotebooks()
+            wx.showToast({ title: '已移除', icon: 'none' })
+          }
+        })
+      }
+    })
+  },
+
+  // ========== 邀请分享 ==========
+
+  onShareAppMessage: function (e) {
+    var dataset = e.target && e.target.dataset
+    var notebookId = dataset && dataset.id
+    var name = dataset && dataset.name
+
+    if (!notebookId) {
+      return { title: '智能语音记账', path: '/pages/index/index' }
+    }
+
+    // 异步刷新邀请窗口（24h），不阻塞分享
+    wx.cloud.callFunction({
+      name: 'team',
+      data: { action: 'createInvite', notebookId: notebookId }
+    })
+
+    return {
+      title: '邀请你一起记账：' + (name || '组队账本'),
+      path: '/pages/index/index?inviteNotebookId=' + notebookId
+    }
   },
 
   formatTime: function (date) {

@@ -131,6 +131,12 @@ page {
   white-space: nowrap;
 }
 
+.record-from {
+  font-size: 20rpx;
+  color: #7c3aed;
+  margin-top: 4rpx;
+}
+
 .record-tags {
   display: flex;
   flex-wrap: wrap;
