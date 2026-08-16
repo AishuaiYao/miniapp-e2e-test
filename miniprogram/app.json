@@ -11,11 +11,6 @@
     "navigationBarBackgroundColor": "#e0f2fe",
     "navigationBarTextStyle": "black"
   },
-  "permission": {
-    "scope.record": {
-      "desc": "用于语音识别，将你说的话转成文字"
-    }
-  },
   "requiredPrivateInfos": [],
   "usingComponents": {}
 }
