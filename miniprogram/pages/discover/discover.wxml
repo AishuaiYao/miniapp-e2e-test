@@ -11,9 +11,7 @@
       </view>
     </view>
     <view class="nav-bar-title">发现</view>
-    <view class="nav-bar-right">
-      <view class="publish-btn" bind:tap="showPublishPopup">+ 发布</view>
-    </view>
+    <view class="nav-bar-right"></view>
   </view>
 
   <!-- 顶部筛选区：搜索 + 分类 + 排序 -->
@@ -132,7 +130,7 @@
       <view class="empty-section" wx:if="{{posts.length === 0 && !loadingPosts}}">
         <view class="empty-illustration">📭</view>
         <text class="empty-text">还没有博文</text>
-        <text class="empty-hint">点击右上角发布第一篇博文吧</text>
+        <text class="empty-hint">点击右下角发布第一篇博文吧</text>
       </view>
 
       <!-- 加载中 -->
@@ -143,6 +141,9 @@
 
     <view style="height: 60rpx;"></view>
   </scroll-view>
+
+  <!-- 右下角发布按钮 -->
+  <view class="fab-publish" bind:tap="showPublishPopup">+ 发布</view>
 
   <!-- 发布博文弹窗 -->
   <view class="publish-mask" wx:if="{{showPublish}}" catchtap="closePublish">

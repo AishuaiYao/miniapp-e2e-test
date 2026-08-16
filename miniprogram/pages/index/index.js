@@ -662,7 +662,11 @@ Page({
           },
           success: function (cfRes) {
             var cfResult = cfRes.result
-            if (!cfResult || !cfResult.success) return
+            if (!cfResult || !cfResult.success) {
+              // 账本不存在/已删除时给出明确提示
+              if (isLast) wx.showToast({ title: '账本已删除，请选择新账本', icon: 'none' })
+              return
+            }
             var saved = cfResult.record
             saved.categoryIcon = that2.categoryIcons[saved.category] || ''
             var records = [saved].concat(that2.data.records)

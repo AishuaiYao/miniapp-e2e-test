@@ -41,7 +41,7 @@ Page({
       { key: '社交', name: '社交', icon: '🎉' },
       { key: '运动', name: '运动', icon: '⚽' }
     ],
-    activeCategory: '旅行',
+    activeCategory: 'all',
 
     // 排序
     sortOptions: [
@@ -775,13 +775,10 @@ function parseAIJson(text) {
   try {
     return JSON.parse(jsonStr)
   } catch (e) {
-    // 直接解析失败，说明有未转义的真实控制字符，转义后再试
-    var escaped = jsonStr.replace(/[\u0000-\u001F]/g, function (ch) {
-      if (ch === '\n') return '\\n'
-      if (ch === '\r') return '\\r'
-      if (ch === '\t') return '\\t'
-      return '\\u' + ('0000' + ch.charCodeAt(0).toString(16)).slice(-4)
-    })
+    // 直接解析失败，说明字符串值内部有未转义的真实控制字符（如换行）。
+    // 注意：只能转义字符串值内部的控制字符，JSON 结构空白（缩进换行）必须保留，
+    // 否则 {"\n  "title" 会被转成 {\ 开头，报 Expected property name
+    var escaped = escapeControlCharsInStrings(jsonStr)
     try {
       return JSON.parse(escaped)
     } catch (e2) {
@@ -789,4 +786,41 @@ function parseAIJson(text) {
       return null
     }
   }
+}
+
+// 只转义字符串值内部的真实控制字符，保留 JSON 结构空白
+function escapeControlCharsInStrings(s) {
+  var result = ''
+  var inString = false
+  var escape = false
+  for (var i = 0; i < s.length; i++) {
+    var ch = s.charAt(i)
+    if (escape) {
+      result += ch
+      escape = false
+      continue
+    }
+    if (inString && ch === '\\') {
+      result += ch
+      escape = true
+      continue
+    }
+    if (ch === '"') {
+      inString = !inString
+      result += ch
+      continue
+    }
+    if (inString) {
+      var code = ch.charCodeAt(0)
+      if (code < 0x20) {
+        if (ch === '\n') result += '\\n'
+        else if (ch === '\r') result += '\\r'
+        else if (ch === '\t') result += '\\t'
+        else result += '\\u' + ('0000' + code.toString(16)).slice(-4)
+        continue
+      }
+    }
+    result += ch
+  }
+  return result
 }

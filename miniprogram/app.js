@@ -46,6 +46,9 @@ App({
       this.globalData.statusBarHeight = statusBarHeight
       this.globalData.navBarHeight = navBarHeight
       this.globalData.navTotalHeight = statusBarHeight + navBarHeight
+      // 胶囊按钮位置（right = 距屏幕右边缘 px，width = 按钮宽度 px），用于自定义导航栏右侧让位
+      this.globalData.menuButtonRight = menuButton ? menuButton.right : 0
+      this.globalData.menuButtonWidth = menuButton ? menuButton.width : 0
     } catch (e) {
       console.error('初始化导航栏尺寸失败:', e)
       this.globalData.statusBarHeight = 20
@@ -61,7 +64,9 @@ App({
     return {
       statusBarHeight: this.globalData.statusBarHeight,
       navBarHeight: this.globalData.navBarHeight,
-      navTotalHeight: this.globalData.navTotalHeight
+      navTotalHeight: this.globalData.navTotalHeight,
+      menuButtonRight: this.globalData.menuButtonRight || 0,
+      menuButtonWidth: this.globalData.menuButtonWidth || 0
     }
   },
 

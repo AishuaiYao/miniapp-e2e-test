@@ -62,23 +62,33 @@ page {
 }
 
 .nav-bar-right {
-  width: 120rpx;
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
+  width: 80rpx;
+  height: 80rpx;
+  flex-shrink: 0;
 }
 
-.publish-btn {
-  font-size: 26rpx;
-  font-weight: 600;
+/* ========== 右下角发布按钮 ========== */
+
+.fab-publish {
+  position: fixed;
+  right: 32rpx;
+  bottom: 48rpx;
+  z-index: 20;
+  font-size: 30rpx;
+  font-weight: 700;
   color: #fff;
   background: linear-gradient(135deg, #7dd3fc, #38bdf8);
-  padding: 10rpx 24rpx;
-  border-radius: 30rpx;
-  box-shadow: 0 4rpx 12rpx rgba(56, 189, 248, 0.3);
+  padding: 22rpx 40rpx;
+  border-radius: 48rpx;
+  box-shadow: 0 8rpx 24rpx rgba(56, 189, 248, 0.4);
+  white-space: nowrap;
+  line-height: 1.4;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.publish-btn:active {
+.fab-publish:active {
   transform: scale(0.95);
 }
 
