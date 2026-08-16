@@ -503,13 +503,18 @@ Page({
         '  "transaction_time": "完整交易时间，格式YYYY-MM-DD HH:mm，未提及则为空字符串",\n' +
         '  "reply": "给用户的简短回复"\n' +
         '}\n\n' +
+        '【重要：多笔记录输出规则】\n' +
+        '当用户一次描述了多笔消费时，必须为每一笔分别输出一个完整的JSON对象，多个JSON对象之间用换行分隔，不要用数组包裹。\n' +
+        '例如用户说"周1吃饭100住宿200"，要输出2个JSON对象；"吃饭30打车15买票50"要输出3个JSON对象。\n' +
+        '每笔记录的transaction_time根据各自的相对时间（周1、周2等）分别计算。\n\n' +
         '【交易时间提取规则】\n' +
         '1. 用户明确提到交易时间时，必须提取到transaction_time。\n' +
         '2. transaction_time必须是完整的YYYY-MM-DD HH:mm格式，不能只返回月日。\n' +
         '3. 当前时间作为相对时间基准：今天、昨天、前天、上周五、上个月等都要换算成完整年月日。\n' +
         '4. 只有月日时，结合当前年份补全年份；出现去年、前年等词时按语义计算年份。\n' +
         '5. 只有日期没有具体时刻时，时间统一使用12:00。\n' +
-        '6. 用户没有提及时间，transaction_time返回空字符串，由程序使用当前时间。\n\n' +
+        '6. 用户没有提及时间，transaction_time返回空字符串，由程序使用当前时间。\n' +
+        '7. "周1""周2"等表示本周的星期一、星期二，需根据当前时间计算完整年月日。\n\n' +
         '【支出大类及细类】\n' +
         '餐饮：堂食、外卖、快餐、零食、饮料、咖啡、聚餐、夜宵、早餐、午餐、晚餐\n' +
         '交通：打车、出租车、地铁、公交、共享单车、高铁、火车、飞机、停车费、加油、过路费、充电\n' +
@@ -545,6 +550,9 @@ Page({
         '用户："充了个月度视频会员25" → {"is_transaction":true,"type":"expense","amount":25,"category":"娱乐","sub_category":"视频会员","description":"视频会员","reply":"已记：娱乐-视频会员 25元"}\n' +
         '用户："工资到账8000" → {"is_transaction":true,"type":"income","amount":8000,"category":"工资","sub_category":"基本工资","description":"工资","reply":"已记：工资-基本工资 8000元"}\n' +
         '用户："股票赚了2000" → {"is_transaction":true,"type":"income","amount":2000,"category":"投资","sub_category":"股票","description":"股票收益","reply":"已记：投资-股票 2000元"}\n' +
+        '用户："周1布尔津吃饭100住宿200" → 输出两个JSON对象：\n' +
+        '{"is_transaction":true,"type":"expense","amount":100,"category":"餐饮","sub_category":"晚餐","description":"布尔津吃饭","location":"布尔津","transaction_time":"本周一12:00","reply":"已记：餐饮-晚餐 100元"}\n' +
+        '{"is_transaction":true,"type":"expense","amount":200,"category":"住房","sub_category":"酒店","description":"布尔津住宿","location":"布尔津","transaction_time":"本周一12:00","reply":"已记：住房-酒店 200元"}\n' +
         '用户："你好" → {"is_transaction":false,"type":"","amount":0,"category":"","sub_category":"","description":"","reply":"你好，请告诉我你的收支情况"}\n\n' +
         '注意：amount必须是数字类型，不要加引号或单位。'
 
@@ -595,70 +603,83 @@ Page({
   handleAIReply: function (answer) {
     this.setData({ loading: false })
 
-    // 尝试从回答中提取 JSON
-    var jsonStr = ''
-    try {
-      // 找到第一个 { 和最后一个 }
-      var start = answer.indexOf('{')
-      var end = answer.lastIndexOf('}')
-      if (start >= 0 && end > start) {
-        jsonStr = answer.substring(start, end + 1)
-        var result = JSON.parse(jsonStr)
-        console.log('[记账] 解析结果:', result)
+    // 提取所有 {...} 对象（支持一次返回多条记录）
+    var reg = /\{[^{}]*\}/g
+    var matches = answer.match(reg)
+    if (!matches) {
+      console.error('[记账] 未找到 JSON:', answer)
+      return
+    }
 
-        if (result.is_transaction === true && result.amount > 0) {
-          var that2 = this
-          var userInfo = app.getUserInfo()
-          if (!userInfo || !userInfo.openId) {
-            wx.showToast({ title: '请先登录', icon: 'none' })
-            return
-          }
-
-          var nowTime = that2.formatTime(new Date())
-          var extractedTime = result.transaction_time || ''
-          var timePattern = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/
-          var recordTime = timePattern.test(extractedTime) ? extractedTime : nowTime
-          var recordData = {
-            type: result.type || 'expense',
-            amount: round3(result.amount),
-            category: result.category || '其他',
-            subCategory: result.sub_category || '',
-            description: result.description || '',
-            location: result.location || '',
-            time: recordTime,
-            raw: that2.data.asrText
-          }
-
-          wx.cloud.callFunction({
-            name: 'teamRecords',
-            data: {
-              action: 'addRecord',
-              notebookId: that2.data.currentNotebookId,
-              record: recordData
-            },
-            success: function (cfRes) {
-              var cfResult = cfRes.result
-              if (!cfResult || !cfResult.success) {
-                wx.showToast({ title: '保存失败', icon: 'none' })
-                return
-              }
-              var saved = cfResult.record
-              saved.categoryIcon = that2.categoryIcons[saved.category] || ''
-              var records = [saved].concat(that2.data.records)
-              that2.setData({ records: records })
-              that2.updateStats(records)
-              that2.filterRecords()
-              wx.showToast({ title: '记账成功', icon: 'success' })
-            },
-            fail: function (err) {
-              console.error('[记账] 保存失败:', err)
-              wx.showToast({ title: '保存失败', icon: 'none' })
-            }
-          })
-        }
+    var results = []
+    for (var i = 0; i < matches.length; i++) {
+      try {
+        var obj = JSON.parse(matches[i])
+        if (obj.is_transaction === true && obj.amount > 0) results.push(obj)
+      } catch (e) {
+        console.error('[记账] 单条解析失败:', e, '| 原文:', matches[i])
       }
-    } catch (e) {
-      console.error('[记账] JSON 解析失败:', e, '| 原文:', jsonStr || answer)
+    }
+
+    if (results.length === 0) {
+      wx.showToast({ title: '未识别到记账信息', icon: 'none' })
+      return
+    }
+
+    var that2 = this
+    var userInfo = app.getUserInfo()
+    if (!userInfo || !userInfo.openId) {
+      wx.showToast({ title: '请先登录', icon: 'none' })
+      return
+    }
+
+    var nowTime = that2.formatTime(new Date())
+    var timePattern = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/
+
+    // 逐条入库
+    var savedCount = 0
+    for (var j = 0; j < results.length; j++) {
+      ;(function (result, isLast) {
+        var extractedTime = result.transaction_time || ''
+        var recordTime = timePattern.test(extractedTime) ? extractedTime : nowTime
+        var recordData = {
+          type: result.type || 'expense',
+          amount: round3(result.amount),
+          category: result.category || '其他',
+          subCategory: result.sub_category || '',
+          description: result.description || '',
+          location: result.location || '',
+          time: recordTime,
+          raw: that2.data.asrText
+        }
+
+        wx.cloud.callFunction({
+          name: 'teamRecords',
+          data: {
+            action: 'addRecord',
+            notebookId: that2.data.currentNotebookId,
+            record: recordData
+          },
+          success: function (cfRes) {
+            var cfResult = cfRes.result
+            if (!cfResult || !cfResult.success) return
+            var saved = cfResult.record
+            saved.categoryIcon = that2.categoryIcons[saved.category] || ''
+            var records = [saved].concat(that2.data.records)
+            that2.setData({ records: records })
+            that2.updateStats(records)
+            that2.filterRecords()
+            savedCount++
+            if (isLast) {
+              wx.showToast({ title: '已记 ' + savedCount + ' 条', icon: 'success' })
+            }
+          },
+          fail: function (err) {
+            console.error('[记账] 保存失败:', err)
+            if (isLast) wx.showToast({ title: '部分保存失败', icon: 'none' })
+          }
+        })
+      })(results[j], j === results.length - 1)
     }
   },
 
