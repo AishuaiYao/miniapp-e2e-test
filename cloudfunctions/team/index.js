@@ -32,6 +32,7 @@ exports.main = async (event, context) => {
   if (action === 'joinNotebook') return joinNotebook(OPENID, event)
   if (action === 'removeMember') return removeMember(OPENID, event)
   if (action === 'getNotebookDetail') return getNotebookDetail(OPENID, event)
+  if (action === 'touchNotebook') return touchNotebook(OPENID, event)
 
   return { success: false, error: '未知 action: ' + action }
 }
@@ -72,6 +73,17 @@ async function getNotebooks(openId) {
     decorateNotebook(notebooks[i], openId)
   }
   return { success: true, notebooks: notebooks }
+}
+
+// 记录账本最近使用时间（用于登录后自动恢复「最近使用」的账本）
+async function touchNotebook(openId, event) {
+  var nb = await getNotebookDoc(event.notebookId)
+  if (!nb) return { success: false, error: '账本不存在' }
+  if (!isMember(nb, openId)) return { success: false, error: '无权访问' }
+  await db.collection('notebooks').doc(event.notebookId).update({
+    data: { lastUsedAt: Date.now() }
+  })
+  return { success: true }
 }
 
 async function deleteNotebook(openId, event) {

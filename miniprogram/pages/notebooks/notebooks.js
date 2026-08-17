@@ -20,14 +20,15 @@ Page({
     memberNotebook: null,
 
     presetTypes: [
-      { name: '日常开销', icon: '/images/日常开销.png', desc: '日常生活支出' },
-      { name: '旅行账本', icon: '/images/旅行.png', desc: '旅途花销记录' },
-      { name: '育儿账本', icon: '/images/育儿.png', desc: '孩子相关支出' },
-      { name: '学习账本', icon: '/images/学习.png', desc: '学习培训费用' },
-      { name: '装修账本', icon: '/images/装修.png', desc: '房屋装修支出' },
-      { name: '婚礼账本', icon: '/images/结婚.png', desc: '结婚相关花销' },
-      { name: '医疗健康', icon: '/images/医疗.png', desc: '看病保健支出' },
-      { name: '聚餐账本', icon: '/images/团建聚餐.png', desc: '请客聚餐花销' }
+      { name: '日常开销', icon: '/images/notebook/日常开销.png', desc: '日常生活支出' },
+      { name: '旅行账本', icon: '/images/notebook/旅行.png', desc: '旅途花销记录' },
+      { name: '育儿账本', icon: '/images/notebook/育儿.png', desc: '孩子相关支出' },
+      { name: '养宠账本', icon: '/images/notebook/养宠.png', desc: '宠物日常开销' },
+      { name: '学习账本', icon: '/images/notebook/学习.png', desc: '学习培训费用' },
+      { name: '装修账本', icon: '/images/notebook/装修.png', desc: '房屋装修支出' },
+      { name: '婚礼账本', icon: '/images/notebook/结婚.png', desc: '结婚相关花销' },
+      { name: '医疗健康', icon: '/images/notebook/医疗.png', desc: '看病保健支出' },
+      { name: '聚餐账本', icon: '/images/notebook/团建聚餐.png', desc: '请客聚餐花销' }
     ]
   },
 
@@ -61,7 +62,11 @@ Page({
     var that = this
     var userInfo = app.getUserInfo()
     if (!userInfo || !userInfo.openId) {
+      // 未登录：提示并引导去「我的」页登录，避免停在创建账本页
       wx.showToast({ title: '请先登录', icon: 'none' })
+      setTimeout(function () {
+        wx.navigateTo({ url: '/pages/account/account' })
+      }, 800)
       return
     }
 
@@ -75,6 +80,12 @@ Page({
           return
         }
         var notebooks = result.notebooks || []
+        // 按最近使用/创建时间倒序排列，最近用的排前面
+        notebooks.sort(function (a, b) {
+          var ta = a.lastUsedAt || Date.parse(a.createdAt) || 0
+          var tb = b.lastUsedAt || Date.parse(b.createdAt) || 0
+          return tb - ta
+        })
         for (var i = 0; i < notebooks.length; i++) {
           if (notebooks[i].createdAt) {
             notebooks[i].timeStr = that.formatTime(new Date(notebooks[i].createdAt))
@@ -191,6 +202,11 @@ Page({
           return
         }
         that.setData({ creating: false, showCreate: false, customIcon: '' })
+        // 新建的账本自动设为当前账本
+        if (result._id) {
+          app.setCurrentNotebook(result._id, name)
+          app.touchCurrentNotebook(result._id)
+        }
         that.loadNotebooks()
         wx.showToast({ title: '创建成功', icon: 'success' })
       },
@@ -210,6 +226,8 @@ Page({
 
     app.setCurrentNotebook(id, name)
     this.setData({ currentNotebookId: id })
+    // 记录该账本的使用时间，用于「最近使用」排序
+    app.touchCurrentNotebook(id)
 
     wx.showToast({ title: '已切换到「' + name + '」', icon: 'none' })
   },

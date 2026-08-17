@@ -246,13 +246,20 @@ Page({
     })
   },
 
-  // 登录成功后触发邀请流程回调
+  // 登录成功后触发邀请流程回调，并自动恢复最近使用的账本
   notifyLoginSuccess: function () {
+    // 有历史账本时自动选中最近使用的账本，新用户无账本则不设置（保持提示创建账本）
+    app.ensureRecentNotebook()
     if (typeof app.globalData.onLoginSuccess === 'function') {
       var cb = app.globalData.onLoginSuccess
       app.globalData.onLoginSuccess = null
       setTimeout(function () { cb() }, 500)
     }
+  },
+
+  // 支持作者：点击逻辑待实现
+  onSupportTap: function () {
+    console.log('[account] 支持作者点击（逻辑待实现）')
   },
 
   handleLogout: function () {

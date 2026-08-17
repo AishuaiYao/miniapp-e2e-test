@@ -48,6 +48,13 @@
         <text class="menu-text">关于我们</text>
         <text class="menu-value">aishuaiservice@163.com</text>
       </view>
+      <view class="menu-item" bind:tap="onSupportTap" hover-class="menu-item-hover">
+        <view class="menu-left">
+          <image class="menu-icon" src="/images/支持.png" mode="aspectFit"></image>
+          <text class="menu-text">点击这里看广告支持作者继续完善</text>
+        </view>
+        <text class="menu-arrow">›</text>
+      </view>
     </view>
   </view>
 

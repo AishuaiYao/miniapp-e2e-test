@@ -147,6 +147,28 @@
   border-bottom: none;
 }
 
+.menu-item-hover {
+  background: rgba(186, 230, 253, 0.25);
+}
+
+.menu-left {
+  display: flex;
+  align-items: center;
+}
+
+.menu-icon {
+  width: 36rpx;
+  height: 36rpx;
+  margin-right: 16rpx;
+  flex-shrink: 0;
+}
+
+.menu-arrow {
+  font-size: 32rpx;
+  color: #cbd5e1;
+  line-height: 1;
+}
+
 .menu-text {
   font-size: 28rpx;
   color: #334155;

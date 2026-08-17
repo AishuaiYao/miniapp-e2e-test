@@ -109,10 +109,21 @@ App({
     if (id) {
       wx.setStorageSync('currentNotebookId', id)
       wx.setStorageSync('currentNotebookName', name || '')
+      this.recordRecentNotebook(id, name)
     } else {
       wx.removeStorageSync('currentNotebookId')
       wx.removeStorageSync('currentNotebookName')
     }
+  },
+
+  // 本地记录最近使用过的账本（云端 lastUsedAt 缺失时的兜底，不依赖云函数是否已部署）
+  recordRecentNotebook: function (id, name) {
+    if (!id) return
+    var list = wx.getStorageSync('recentNotebooks') || []
+    list = list.filter(function (item) { return item.id !== id })
+    list.unshift({ id: id, name: name || '', time: Date.now() })
+    if (list.length > 20) list = list.slice(0, 20)
+    wx.setStorageSync('recentNotebooks', list)
   },
 
   getCurrentNotebookId: function () {
@@ -121,6 +132,72 @@ App({
 
   getCurrentNotebookName: function () {
     return this.globalData.currentNotebookName
+  },
+
+  // 本地无当前账本时，恢复最近使用的账本（优先本地记录，其次云端）
+  ensureRecentNotebook: function (callback) {
+    var that = this
+    var cb = callback || function () {}
+    if (this.globalData.currentNotebookId) {
+      cb(this.globalData.currentNotebookId)
+      return
+    }
+    // 优先用本地最近使用记录，不依赖云端 lastUsedAt 是否已写入
+    var recent = wx.getStorageSync('recentNotebooks') || []
+    if (recent.length > 0) {
+      var top = recent[0]
+      this.setCurrentNotebook(top.id, top.name)
+      this.touchCurrentNotebook(top.id)
+      cb(top.id)
+      return
+    }
+    var userInfo = this.getUserInfo()
+    if (!userInfo || !userInfo.openId) {
+      cb('')
+      return
+    }
+    wx.cloud.callFunction({
+      name: 'team',
+      data: { action: 'getNotebooks' },
+      success: function (res) {
+        var result = res.result
+        if (!result || !result.success || !result.notebooks || result.notebooks.length === 0) {
+          cb('')
+          return
+        }
+        // 按最近使用/创建时间倒序，取最新一个
+        var list = result.notebooks.slice()
+        list.sort(function (a, b) {
+          return that.notebookSortTime(b) - that.notebookSortTime(a)
+        })
+        var nb = list[0]
+        that.setCurrentNotebook(nb._id, nb.name)
+        that.touchCurrentNotebook(nb._id)
+        cb(nb._id)
+      },
+      fail: function () {
+        cb('')
+      }
+    })
+  },
+
+  // 记录账本最近使用时间（云端 lastUsedAt）
+  touchCurrentNotebook: function (notebookId) {
+    if (!notebookId) return
+    wx.cloud.callFunction({
+      name: 'team',
+      data: { action: 'touchNotebook', notebookId: notebookId },
+      fail: function (err) {
+        console.error('[app] 记录账本使用时间失败:', err)
+      }
+    })
+  },
+
+  // 账本排序时间：优先 lastUsedAt，没有则用 createdAt
+  notebookSortTime: function (nb) {
+    if (nb.lastUsedAt) return nb.lastUsedAt
+    var t = Date.parse(nb.createdAt)
+    return t ? t : 0
   },
 
   // ========== 阿里云 API Key ==========

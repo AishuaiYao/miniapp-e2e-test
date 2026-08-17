@@ -135,6 +135,7 @@ Page({
 
   onShow: function (options) {
     // 每次显示页面时刷新当前账本
+    var that = this
     var notebookId = app.getCurrentNotebookId()
     var notebookName = app.getCurrentNotebookName()
 
@@ -148,6 +149,23 @@ Page({
     if (notebookId) {
       this.loadNotebookIcon(notebookId)
       this.loadRecords()
+    } else {
+      // 已登录但本地没有当前账本（如登录后首次回主页/缓存被清），
+      // 尝试从云端自动恢复最近使用的账本；无账本时保持「创建账本」提示
+      var userInfo = app.getUserInfo()
+      if (userInfo && userInfo.openId) {
+        app.ensureRecentNotebook(function (id) {
+          if (id) {
+            that.setData({
+              currentNotebookId: id,
+              currentNotebookName: app.getCurrentNotebookName(),
+              hasNotebook: true
+            })
+            that.loadNotebookIcon(id)
+            that.loadRecords()
+          }
+        })
+      }
     }
 
     // 热启动时通过 options 处理邀请
@@ -345,7 +363,7 @@ Page({
   startRecording: function () {
   this.setData({
     recording: true,
-    recordDuration: 10,
+    recordDuration: 20,
     recordStatusText: '正在录音...'
   })
   this.recordStartTime = Date.now()
@@ -353,7 +371,7 @@ Page({
   var that = this
   this.durationTimer = setInterval(function () {
     var elapsed = Math.floor((Date.now() - that.recordStartTime) / 1000)
-    var remaining = 10 - elapsed
+    var remaining = 20 - elapsed
     if (remaining <= 0) {
       that.setData({ recordDuration: 0 })
       that.recorderManager.stop()
@@ -363,7 +381,7 @@ Page({
   }, 1000)
 
     this.recorderManager.start({
-      duration: 10000,
+      duration: 20000,
       sampleRate: 16000,
       numberOfChannels: 1,
       encodeBitRate: 48000,
@@ -1300,6 +1318,13 @@ Page({
   },
 
   goToNotebooks: function () {
+    // 未登录时先引导去「我的」页登录，而不是进入创建账本页
+    var userInfo = app.getUserInfo()
+    if (!userInfo || !userInfo.openId) {
+      wx.showToast({ title: '请先登录', icon: 'none' })
+      wx.navigateTo({ url: '/pages/account/account' })
+      return
+    }
     wx.navigateTo({ url: '/pages/notebooks/notebooks' })
   },
 
