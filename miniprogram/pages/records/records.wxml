@@ -33,18 +33,17 @@
               <view class="record-cat-row">
                 <view class="record-cat">{{item.category}}{{item.subCategory ? ' · ' + item.subCategory : ''}}</view>
                 <view class="record-image-btn" catchtap="onImageBtnTap" data-id="{{item._id}}" data-url="{{item.imageUrl}}" data-has="{{item.imageFileID ? '1' : ''}}">{{item.imageFileID ? '有图' : '配图'}}</view>
+                <view class="record-edit-btn" catchtap="onEditRecord" data-id="{{item._id}}">编辑</view>
               </view>
               <view class="record-desc">{{item.description}}</view>
               <view class="record-from" wx:if="{{item.creatorNickName}}">来自 {{item.creatorNickName}}</view>
               <view class="record-tags">
                 <view class="record-tag">
                   <text>{{item.time}}</text>
-                  <text class="tag-edit" catchtap="onEditDate" data-id="{{item._id}}" data-time="{{item.time}}">✎</text>
                 </view>
                 <view wx:if="{{item.location}}" class="record-tag">
                   <image class="tag-icon" src="/images/定位.png" mode="aspectFit"></image>
                   <text>{{item.location}}</text>
-                  <text class="tag-edit" catchtap="onEditLocation" data-id="{{item._id}}" data-location="{{item.location}}">✎</text>
                 </view>
               </view>
             </view>
@@ -68,28 +67,59 @@
     <view style="height: 60rpx;"></view>
   </scroll-view>
 
-  <!-- 修改地点弹窗 -->
-  <view class="location-edit-mask" wx:if="{{locationEditVisible}}" catchtap="closeLocationEdit">
-    <view class="location-edit-card" catchtap="onModalStop">
-      <text class="location-edit-title">修改地点</text>
-      <input class="location-edit-input" value="{{locationEditValue}}" bindinput="onLocationInput" placeholder="请输入地点" maxlength="50"></input>
-      <view class="location-edit-actions">
-        <view class="location-edit-cancel" catchtap="closeLocationEdit">取消</view>
-        <view class="location-edit-confirm" catchtap="confirmLocationEdit">确认</view>
-      </view>
-    </view>
-  </view>
+  <!-- 编辑记录弹窗 -->
+  <view class="record-edit-mask" wx:if="{{recordEditVisible}}" catchtap="closeRecordEdit">
+    <view class="record-edit-card" catchtap="onModalStop">
+      <text class="record-edit-title">编辑记录</text>
 
-  <!-- 修改日期弹窗 -->
-  <view class="date-edit-mask" wx:if="{{dateEditVisible}}" catchtap="closeDateEdit">
-    <view class="date-edit-card" catchtap="onModalStop">
-      <text class="date-edit-title">修改日期</text>
-      <picker mode="date" value="{{dateEditValue}}" bindchange="onDateChange">
-        <view class="date-picker-value">{{dateEditValue}}</view>
-      </picker>
-      <view class="date-edit-actions">
-        <view class="date-edit-cancel" catchtap="closeDateEdit">取消</view>
-        <view class="date-edit-confirm" catchtap="confirmDateEdit">确认</view>
+      <view class="edit-field">
+        <text class="edit-label">类型</text>
+        <view class="edit-type-tabs">
+          <view class="edit-type-tab {{recordEditType === 'expense' ? 'edit-type-expense' : ''}}" catchtap="onEditTypeChange" data-type="expense">支出</view>
+          <view class="edit-type-tab {{recordEditType === 'income' ? 'edit-type-income' : ''}}" catchtap="onEditTypeChange" data-type="income">收入</view>
+        </view>
+      </view>
+
+      <view class="edit-field">
+        <text class="edit-label">金额</text>
+        <input class="edit-input" type="digit" value="{{recordEditAmount}}" bindinput="onEditAmountInput" placeholder="0.00"></input>
+      </view>
+
+      <view class="edit-field">
+        <text class="edit-label">分类</text>
+        <input class="edit-input" value="{{recordEditCategory}}" bindinput="onEditCategoryInput" placeholder="如：餐饮" maxlength="10"></input>
+      </view>
+
+      <view class="edit-field">
+        <text class="edit-label">细类</text>
+        <input class="edit-input" value="{{recordEditSubCategory}}" bindinput="onEditSubCategoryInput" placeholder="如：午餐" maxlength="10"></input>
+      </view>
+
+      <view class="edit-field">
+        <text class="edit-label">描述</text>
+        <input class="edit-input" value="{{recordEditDescription}}" bindinput="onEditDescriptionInput" placeholder="补充说明" maxlength="50"></input>
+      </view>
+
+      <view class="edit-field">
+        <text class="edit-label">时间</text>
+        <view class="edit-time-row">
+          <picker class="edit-picker" mode="date" value="{{recordEditDate}}" bindchange="onEditDateChange">
+            <view class="edit-picker-value">{{recordEditDate}}</view>
+          </picker>
+          <picker class="edit-picker" mode="time" value="{{recordEditTime}}" bindchange="onEditTimeChange">
+            <view class="edit-picker-value">{{recordEditTime}}</view>
+          </picker>
+        </view>
+      </view>
+
+      <view class="edit-field">
+        <text class="edit-label">地点</text>
+        <input class="edit-input" value="{{recordEditLocation}}" bindinput="onEditLocationInput" placeholder="可选" maxlength="50"></input>
+      </view>
+
+      <view class="edit-actions">
+        <view class="edit-cancel" catchtap="closeRecordEdit">取消</view>
+        <view class="edit-confirm" catchtap="confirmRecordEdit">保存</view>
       </view>
     </view>
   </view>

@@ -256,6 +256,8 @@ Page({
               }
               var notebooks = that.data.notebooks.filter(function (n) { return n._id !== id })
               that.setData({ notebooks: notebooks })
+              // 同步清理本地最近使用记录，避免回主页误恢复已删除的账本
+              app.removeRecentNotebook(id)
 
               if (that.data.currentNotebookId === id) {
                 if (notebooks.length > 0) {

@@ -13,13 +13,16 @@ Page({
     totalIncome: 0,
     totalExpense: 0,
     balance: 0,
-    dateEditVisible: false,
-    dateEditId: '',
-    dateEditOldTime: '',
-    dateEditValue: '',
-    locationEditVisible: false,
-    locationEditId: '',
-    locationEditValue: '',
+    recordEditVisible: false,
+    recordEditId: '',
+    recordEditType: 'expense',
+    recordEditAmount: '',
+    recordEditCategory: '',
+    recordEditSubCategory: '',
+    recordEditDescription: '',
+    recordEditDate: '',
+    recordEditTime: '',
+    recordEditLocation: '',
 
     imagePreviewVisible: false,
     imagePreviewId: '',
@@ -259,33 +262,92 @@ Page({
 
   onModalStop: function () {},
 
-  onEditDate: function (e) {
-    var oldTime = e.currentTarget.dataset.time
+  onEditRecord: function (e) {
+    var id = e.currentTarget.dataset.id
+    var record = this.data.records.filter(function (r) { return r._id === id })[0]
+    if (!record) return
+    var time = record.time || ''
     this.setData({
-      dateEditVisible: true,
-      dateEditId: e.currentTarget.dataset.id,
-      dateEditOldTime: oldTime,
-      dateEditValue: oldTime.substring(0, 10)
+      recordEditVisible: true,
+      recordEditId: id,
+      recordEditType: record.type || 'expense',
+      recordEditAmount: record.amount != null ? String(record.amount) : '',
+      recordEditCategory: record.category || '',
+      recordEditSubCategory: record.subCategory || '',
+      recordEditDescription: record.description || '',
+      recordEditDate: time.substring(0, 10),
+      recordEditTime: time.substring(11, 16) || '12:00',
+      recordEditLocation: record.location || ''
     })
   },
 
-  onDateChange: function (e) {
-    this.setData({ dateEditValue: e.detail.value })
+  onEditTypeChange: function (e) {
+    this.setData({ recordEditType: e.currentTarget.dataset.type })
   },
 
-  closeDateEdit: function () {
-    this.setData({ dateEditVisible: false })
+  onEditAmountInput: function (e) {
+    this.setData({ recordEditAmount: e.detail.value })
   },
 
-  confirmDateEdit: function () {
+  onEditCategoryInput: function (e) {
+    this.setData({ recordEditCategory: e.detail.value })
+  },
+
+  onEditSubCategoryInput: function (e) {
+    this.setData({ recordEditSubCategory: e.detail.value })
+  },
+
+  onEditDescriptionInput: function (e) {
+    this.setData({ recordEditDescription: e.detail.value })
+  },
+
+  onEditDateChange: function (e) {
+    this.setData({ recordEditDate: e.detail.value })
+  },
+
+  onEditTimeChange: function (e) {
+    this.setData({ recordEditTime: e.detail.value })
+  },
+
+  onEditLocationInput: function (e) {
+    this.setData({ recordEditLocation: e.detail.value })
+  },
+
+  closeRecordEdit: function () {
+    this.setData({ recordEditVisible: false })
+  },
+
+  confirmRecordEdit: function () {
     var that = this
-    var oldTime = this.data.dateEditOldTime
-    var newTime = this.data.dateEditValue + ' ' + oldTime.substring(11, 16)
-    var recordId = this.data.dateEditId
+    var amount = Number(this.data.recordEditAmount)
+    if (!amount || amount <= 0) {
+      wx.showToast({ title: '请输入正确金额', icon: 'none' })
+      return
+    }
+    var category = this.data.recordEditCategory.trim()
+    if (!category) {
+      wx.showToast({ title: '请输入分类', icon: 'none' })
+      return
+    }
+    var time = this.data.recordEditDate + ' ' + this.data.recordEditTime
+    if (!/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/.test(time)) {
+      wx.showToast({ title: '时间格式不正确', icon: 'none' })
+      return
+    }
+    var id = this.data.recordEditId
+    var update = {
+      type: this.data.recordEditType,
+      amount: Math.round(amount * 100) / 100,
+      category: category,
+      subCategory: this.data.recordEditSubCategory.trim(),
+      description: this.data.recordEditDescription.trim(),
+      time: time,
+      location: this.data.recordEditLocation.trim()
+    }
 
     wx.cloud.callFunction({
       name: 'teamRecords',
-      data: { action: 'updateRecord', recordId: recordId, update: { time: newTime } },
+      data: { action: 'updateRecord', recordId: id, update: update },
       success: function (cfRes) {
         var cfResult = cfRes.result
         if (!cfResult || !cfResult.success) {
@@ -293,61 +355,25 @@ Page({
           return
         }
         var records = that.data.records.map(function (record) {
-          if (record._id === recordId) record.time = newTime
+          if (record._id === id) {
+            record.type = update.type
+            record.amount = update.amount
+            record.category = update.category
+            record.subCategory = update.subCategory
+            record.description = update.description
+            record.time = update.time
+            record.location = update.location
+            record.categoryIcon = that.categoryIcons[update.category] || ''
+          }
           return record
         })
-        that.setData({ records: records, dateEditVisible: false })
+        that.setData({ records: records, recordEditVisible: false })
         that.recalcStats(records)
-        wx.showToast({ title: '日期已更新', icon: 'success' })
+        wx.showToast({ title: '已保存', icon: 'success' })
       },
       fail: function (err) {
-        console.error('[记录] 日期更新失败:', err)
-        wx.showToast({ title: '更新失败', icon: 'none' })
-      }
-    })
-  },
-
-  onEditLocation: function (e) {
-    this.setData({
-      locationEditVisible: true,
-      locationEditId: e.currentTarget.dataset.id,
-      locationEditValue: e.currentTarget.dataset.location
-    })
-  },
-
-  onLocationInput: function (e) {
-    this.setData({ locationEditValue: e.detail.value })
-  },
-
-  closeLocationEdit: function () {
-    this.setData({ locationEditVisible: false })
-  },
-
-  confirmLocationEdit: function () {
-    var that = this
-    var location = this.data.locationEditValue.trim()
-    var id = this.data.locationEditId
-
-    wx.cloud.callFunction({
-      name: 'teamRecords',
-      data: { action: 'updateRecord', recordId: id, update: { location: location } },
-      success: function (cfRes) {
-        var cfResult = cfRes.result
-        if (!cfResult || !cfResult.success) {
-          wx.showToast({ title: cfResult ? cfResult.error : '更新失败', icon: 'none' })
-          return
-        }
-        var records = that.data.records.map(function (record) {
-          if (record._id === id) record.location = location
-          return record
-        })
-        that.setData({ records: records, locationEditVisible: false })
-        that.recalcStats(records)
-        wx.showToast({ title: '地点已更新', icon: 'success' })
-      },
-      fail: function (err) {
-        console.error('[记录] 地点更新失败:', err)
-        wx.showToast({ title: '更新失败', icon: 'none' })
+        console.error('[记录] 编辑保存失败:', err)
+        wx.showToast({ title: '保存失败', icon: 'none' })
       }
     })
   },
