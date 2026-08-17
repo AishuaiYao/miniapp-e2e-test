@@ -22,6 +22,10 @@
 
     <!-- 记录列表 -->
     <view class="section list-section" wx:if="{{records.length > 0}}">
+      <view class="list-header">
+        <text class="list-title">记账记录</text>
+        <text class="list-count">共 {{recordCount}} 条 · 支出 {{expenseCount}} · 收入 {{incomeCount}}</text>
+      </view>
       <view class="record-list">
         <view class="record-item" wx:for="{{records}}" wx:key="id">
           <view class="record-item-left">

@@ -36,6 +36,7 @@ Page({
     calendarLabel: '',
     calendarDays: [],
     dailyExpenseTotal: 0,
+    monthlyHeat: [],
 
     // 饼状图数据
     pieData: [],
@@ -44,6 +45,10 @@ Page({
     categoryStats: [],
     activeTab: 'all', // all / expense / income
     filteredRecords: [],
+    showAllBtn: false,
+    allCount: 0,
+    expenseCount: 0,
+    incomeCount: 0,
 
     // 当前账本
     currentNotebookId: '',
@@ -839,7 +844,7 @@ Page({
   },
 
   clearAnalysisMonth: function () {
-    this.setData({ analysisMonth: '', analysisLabel: '全部时间' })
+    this.setData({ analysisMonth: '', analysisLabel: '全部时间', calendarMonth: '', calendarLabel: '' })
     this.updateStats(this.data.records)
   },
 
@@ -854,35 +859,65 @@ Page({
 
   updateCalendar: function (records) {
     var month = this.data.analysisMonth || this.data.calendarMonth
-    if (!month) return
 
-    var parts = month.split('-')
-    var year = Number(parts[0])
-    var monthIndex = Number(parts[1]) - 1
-    var firstDay = new Date(year, monthIndex, 1).getDay()
-    var daysInMonth = new Date(year, monthIndex + 1, 0).getDate()
-    var totals = {}
-    var max = 0
-    var dailyTotal = 0
+    // 选择具体月份：展示该月每日热力图
+    if (month) {
+      var parts = month.split('-')
+      var year = Number(parts[0])
+      var monthIndex = Number(parts[1]) - 1
+      var firstDay = new Date(year, monthIndex, 1).getDay()
+      var daysInMonth = new Date(year, monthIndex + 1, 0).getDate()
+      var totals = {}
+      var max = 0
+      var dailyTotal = 0
 
-    for (var i = 0; i < records.length; i++) {
-      var record = records[i]
-      if (record.type !== 'expense' || (record.time || '').substring(0, 7) !== month) continue
-      var day = Number(record.time.substring(8, 10))
-      totals[day] = round3((totals[day] || 0) + Number(record.amount || 0))
-      dailyTotal += Number(record.amount || 0)
-      if (totals[day] > max) max = totals[day]
+      for (var i = 0; i < records.length; i++) {
+        var record = records[i]
+        if (record.type !== 'expense' || (record.time || '').substring(0, 7) !== month) continue
+        var day = Number(record.time.substring(8, 10))
+        totals[day] = round3((totals[day] || 0) + Number(record.amount || 0))
+        dailyTotal += Number(record.amount || 0)
+        if (totals[day] > max) max = totals[day]
+      }
+
+      var days = []
+      for (var blank = 0; blank < firstDay; blank++) days.push({ empty: true })
+      for (var date = 1; date <= daysInMonth; date++) {
+        var amount = totals[date] || 0
+        var level = amount > 0 ? Math.max(1, Math.ceil(amount / max * 4)) : 0
+        days.push({ day: date, amount: amount, level: level, empty: false })
+      }
+
+      this.setData({ calendarDays: days, dailyExpenseTotal: round3(dailyTotal), monthlyHeat: [] })
+      return
     }
 
-    var days = []
-    for (var blank = 0; blank < firstDay; blank++) days.push({ empty: true })
-    for (var date = 1; date <= daysInMonth; date++) {
-      var amount = totals[date] || 0
-      var level = amount > 0 ? Math.max(1, Math.ceil(amount / max * 4)) : 0
-      days.push({ day: date, amount: amount, level: level, empty: false })
+    // 全部时间：展示 12 个月热力图
+    var monthTotals = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    for (var j = 0; j < records.length; j++) {
+      var r = records[j]
+      if (r.type !== 'expense') continue
+      var t = r.time || ''
+      if (t.length < 7) continue
+      var monthNum = Number(t.substring(5, 7))
+      if (monthNum >= 1 && monthNum <= 12) {
+        monthTotals[monthNum] += Number(r.amount || 0)
+      }
     }
 
-    this.setData({ calendarDays: days, dailyExpenseTotal: round3(dailyTotal) })
+    var maxMonth = 0
+    for (var k = 1; k <= 12; k++) {
+      if (monthTotals[k] > maxMonth) maxMonth = monthTotals[k]
+    }
+
+    var monthlyHeat = []
+    for (var m = 1; m <= 12; m++) {
+      var monthAmount = round3(monthTotals[m])
+      var monthLevel = monthAmount > 0 ? Math.max(1, Math.ceil(monthAmount / maxMonth * 4)) : 0
+      monthlyHeat.push({ label: m + '月', amount: monthAmount, level: monthLevel })
+    }
+
+    this.setData({ calendarDays: [], dailyExpenseTotal: 0, monthlyHeat: monthlyHeat })
   },
 
   // 大类固定配色（马卡龙色系）
@@ -1070,13 +1105,33 @@ Page({
       filtered = records.filter(function (r) { return r.type === 'income' })
     }
 
-    this.setData({ filteredRecords: filtered })
+    // 统计各类型数量
+    var expenseCount = 0
+    var incomeCount = 0
+    for (var i = 0; i < records.length; i++) {
+      if (records[i].type === 'income') incomeCount++
+      else expenseCount++
+    }
+
+    // 主页列表最多展示 20 条（最近记录），超出时显示「查看全部」按钮
+    this.setData({
+      filteredRecords: filtered.slice(0, 20),
+      showAllBtn: filtered.length > 20,
+      allCount: records.length,
+      expenseCount: expenseCount,
+      incomeCount: incomeCount
+    })
   },
 
   onTabChange: function (e) {
     var tab = e.currentTarget.dataset.tab
     this.setData({ activeTab: tab })
     this.filterRecords()
+  },
+
+  goToAllRecords: function () {
+    app.tagFilterData = { filterType: '', filterValue: '' }
+    wx.navigateTo({ url: '/pages/records/records' })
   },
 
   resolveRecordImages: function (records, callback) {

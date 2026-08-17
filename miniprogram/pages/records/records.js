@@ -13,6 +13,9 @@ Page({
     totalIncome: 0,
     totalExpense: 0,
     balance: 0,
+    recordCount: 0,
+    expenseCount: 0,
+    incomeCount: 0,
     recordEditVisible: false,
     recordEditId: '',
     recordEditType: 'expense',
@@ -414,17 +417,24 @@ Page({
   recalcStats: function (records) {
     var totalIncome = 0
     var totalExpense = 0
+    var incomeCount = 0
+    var expenseCount = 0
     for (var i = 0; i < records.length; i++) {
       if (records[i].type === 'income') {
         totalIncome += records[i].amount
+        incomeCount++
       } else {
         totalExpense += records[i].amount
+        expenseCount++
       }
     }
     this.setData({
       totalIncome: round3(totalIncome),
       totalExpense: round3(totalExpense),
-      balance: round3(totalIncome - totalExpense)
+      balance: round3(totalIncome - totalExpense),
+      recordCount: records.length,
+      expenseCount: expenseCount,
+      incomeCount: incomeCount
     })
   }
 })

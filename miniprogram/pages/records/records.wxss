@@ -26,6 +26,24 @@ page {
   padding: 16rpx 24rpx;
 }
 
+.list-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12rpx 4rpx 16rpx;
+}
+
+.list-title {
+  font-size: 30rpx;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.list-count {
+  font-size: 24rpx;
+  color: #94a3b8;
+}
+
 /* 概览 */
 .stats-cards {
   display: flex;

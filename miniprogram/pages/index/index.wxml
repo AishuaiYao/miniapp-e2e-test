@@ -126,9 +126,9 @@
 
       <!-- Tab 切换 -->
       <view class="tab-bar">
-        <view class="tab {{activeTab === 'all' ? 'active' : ''}}" bindtap="onTabChange" data-tab="all">全部</view>
-        <view class="tab {{activeTab === 'expense' ? 'active' : ''}}" bindtap="onTabChange" data-tab="expense">支出</view>
-        <view class="tab {{activeTab === 'income' ? 'active' : ''}}" bindtap="onTabChange" data-tab="income">收入</view>
+        <view class="tab {{activeTab === 'all' ? 'active' : ''}}" bindtap="onTabChange" data-tab="all">全部 ({{allCount}})</view>
+        <view class="tab {{activeTab === 'expense' ? 'active' : ''}}" bindtap="onTabChange" data-tab="expense">支出 ({{expenseCount}})</view>
+        <view class="tab {{activeTab === 'income' ? 'active' : ''}}" bindtap="onTabChange" data-tab="income">收入 ({{incomeCount}})</view>
       </view>
 
       <!-- 记录列表 -->
@@ -169,6 +169,7 @@
         <view class="empty-tip" wx:if="{{filteredRecords.length === 0}}">
           <text>暂无记录</text>
         </view>
+        <view class="view-all-btn" wx:if="{{showAllBtn}}" bindtap="goToAllRecords">查看全部</view>
       </view>
     </view>
 
@@ -204,22 +205,34 @@
       </view>
 
       <!-- 每日消费 -->
-      <view class="section daily-section" wx:if="{{calendarDays.length > 0}}">
+      <view class="section daily-section" wx:if="{{calendarDays.length > 0 || monthlyHeat.length > 0}}">
         <view class="analysis-subtitle">每日消费</view>
         <view class="daily-card">
-          <view class="calendar-header">
-            <text class="calendar-month">{{calendarLabel}}</text>
-          </view>
-          <view class="weekday-row">
-            <text wx:for="{{['日','一','二','三','四','五','六']}}" wx:key="*this">{{item}}</text>
-          </view>
-          <view class="calendar-grid">
-            <view wx:for="{{calendarDays}}" wx:key="index" class="calendar-day {{item.empty ? 'calendar-empty' : 'heat-level-' + item.level}}">
-              <text wx:if="{{!item.empty}}" class="calendar-day-number">{{item.day}}</text>
-              <text wx:if="{{item.amount > 0}}" class="calendar-day-amount">¥{{item.amount}}</text>
+          <!-- 选择具体月份：当月每日热力图 -->
+          <block wx:if="{{analysisMonth}}">
+            <view class="calendar-header">
+              <text class="calendar-month">{{calendarLabel}}</text>
+              <text class="calendar-month-total">支出 ¥{{dailyExpenseTotal}}</text>
             </view>
-          </view>
-          <view class="daily-total">{{calendarLabel}}支出 ¥{{dailyExpenseTotal}}</view>
+            <view class="weekday-row">
+              <text wx:for="{{['日','一','二','三','四','五','六']}}" wx:key="*this">{{item}}</text>
+            </view>
+            <view class="calendar-grid">
+              <view wx:for="{{calendarDays}}" wx:key="index" class="calendar-day {{item.empty ? 'calendar-empty' : 'heat-level-' + item.level}}">
+                <text wx:if="{{!item.empty}}" class="calendar-day-number">{{item.day}}</text>
+                <text wx:if="{{item.amount > 0}}" class="calendar-day-amount">¥{{item.amount}}</text>
+              </view>
+            </view>
+          </block>
+          <!-- 全部时间：12 个月热力图 -->
+          <block wx:else>
+            <view class="monthly-grid">
+              <view wx:for="{{monthlyHeat}}" wx:key="index" class="monthly-cell heat-level-{{item.level}}">
+                <text class="monthly-month">{{item.label}}</text>
+                <text class="monthly-amount">¥{{item.amount}}</text>
+              </view>
+            </view>
+          </block>
         </view>
       </view>
     </view>
