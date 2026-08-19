@@ -9,6 +9,7 @@ Page({
     filterType: '',
     filterValue: '',
     title: '',
+    loading: false,
     records: [],
     totalIncome: 0,
     totalExpense: 0,
@@ -82,6 +83,7 @@ Page({
     }
 
     var notebookId = app.getCurrentNotebookId()
+    that.setData({ loading: true })
     wx.cloud.callFunction({
       name: 'teamRecords',
       data: { action: 'getRecords', notebookId: notebookId },
@@ -105,11 +107,12 @@ Page({
         }
         that.resolveRecordImages(records, function () {
           that.recalcStats(records)
-          that.setData({ records: records })
+          that.setData({ records: records, loading: false })
         })
       },
       fail: function (err) {
         console.error('[记录] 查询失败:', err)
+        that.setData({ loading: false })
         wx.showToast({ title: '加载失败', icon: 'none' })
       }
     })

@@ -4,6 +4,12 @@ function round3(n) {
   return Math.round(n * 1000) / 1000
 }
 
+// 首页数据本地缓存 key（按账本隔离），用于冷启动/重新进入时秒开
+var HOME_CACHE_PREFIX = 'homeCache_'
+function homeCacheKey(notebookId) {
+  return HOME_CACHE_PREFIX + notebookId
+}
+
 Page({
   data: {
     // 导航栏
@@ -126,7 +132,11 @@ Page({
       }
       that.recorderManager.stop()
       that.setData({ recording: false, loading: false })
-      wx.showToast({ title: '录音失败', icon: 'none' })
+      // 录音过短（<1s）属于误触，静默不提示
+      var errDuration = Date.now() - that.recordStartTime
+      if (errDuration >= 1000) {
+        wx.showToast({ title: '录音失败', icon: 'none' })
+      }
     })
 
     // 加载本地存储的记账记录
@@ -156,7 +166,9 @@ Page({
     // 加载当前账本图标
     if (notebookId) {
       this.loadNotebookIcon(notebookId)
-      this.loadRecords()
+      // 首次进入该账本（冷启动/重新进入/切换账本）用缓存秒开，否则直接后台刷新
+      var firstForNotebook = this._loadedNotebookId !== notebookId
+      this.loadRecords(firstForNotebook)
     } else {
       // 已登录但本地没有当前账本（如登录后首次回主页/缓存被清），
       // 尝试从云端自动恢复最近使用的账本；无账本时保持「创建账本」提示
@@ -170,7 +182,8 @@ Page({
               hasNotebook: true
             })
             that.loadNotebookIcon(id)
-            that.loadRecords()
+            var firstForNb = that._loadedNotebookId !== id
+            that.loadRecords(firstForNb)
           }
         })
       }
@@ -294,6 +307,7 @@ Page({
           currentNotebookIsTeam: !!nb.isTeam,
           currentNotebookMemberCount: nb.memberCount || 1
         })
+        that.writeHomeCache()
       },
       fail: function () {
         that.setData({ currentNotebookIcon: '', currentNotebookIsTeam: false })
@@ -400,9 +414,9 @@ Page({
   onRecordEnd: function () {
     if (!this.data.recording) return
 
-    // 误触保护：录音时长过短，兜底 stop 释放资源后静默忽略
+    // 误触保护：录音时长过短（<1s），兜底 stop 释放资源后静默忽略
     var duration = Date.now() - this.recordStartTime
-    if (duration < 300) {
+    if (duration < 1000) {
       if (this.durationTimer) {
         clearInterval(this.durationTimer)
         this.durationTimer = null
@@ -422,9 +436,9 @@ Page({
     }
 
     var duration = Date.now() - this.recordStartTime
-    if (duration < 500) {
+    // 录音时长过短（<1s）：视为误触或无效输入，静默忽略，不提示、不调用识别
+    if (duration < 1000) {
       this.setData({ recording: false })
-      wx.showToast({ title: '录音太短，请长按说话', icon: 'none' })
       return
     }
 
@@ -503,6 +517,22 @@ Page({
         wx.showToast({ title: '网络请求失败', icon: 'none' })
       }
     })
+  },
+
+  // ========== 账本 AI 分析报告 ==========
+
+  goToAIReport: function () {
+    var records = this.data.records
+    if (!records || records.length === 0) {
+      wx.showToast({ title: '暂无记录可分析', icon: 'none' })
+      return
+    }
+    // 用全局变量传数据（记录可能较多，避免 URL 长度限制）
+    app.aiReportData = {
+      records: records,
+      notebookName: this.data.currentNotebookName || ''
+    }
+    wx.navigateTo({ url: '/pages/ai-report/ai-report' })
   },
 
   // ========== HY3 记账分析 ==========
@@ -699,6 +729,7 @@ Page({
             that2.setData({ records: records })
             that2.updateStats(records)
             that2.filterRecords()
+            that2.writeHomeCache()
             savedCount++
             if (isLast) {
               wx.showToast({ title: '已记 ' + savedCount + ' 条', icon: 'success' })
@@ -715,11 +746,62 @@ Page({
 
   // ========== 记账数据管理 ==========
 
-  loadRecords: function () {
+  // 读取本地缓存
+  readHomeCache: function (notebookId) {
+    try {
+      return wx.getStorageSync(homeCacheKey(notebookId)) || null
+    } catch (e) {
+      return null
+    }
+  },
+
+  // 将当前页面数据写入本地缓存（每次成功加载/增删改后调用，保证缓存是最新快照）
+  writeHomeCache: function () {
+    var notebookId = this.data.currentNotebookId
+    if (!notebookId) return
+    try {
+      wx.setStorageSync(homeCacheKey(notebookId), {
+        records: this.data.records,
+        notebookIcon: this.data.currentNotebookIcon,
+        notebookIsTeam: this.data.currentNotebookIsTeam,
+        memberCount: this.data.currentNotebookMemberCount,
+        cachedAt: Date.now()
+      })
+    } catch (e) {
+      console.error('[缓存] 写入失败:', e)
+    }
+  },
+
+  // 用本地缓存立即渲染，实现秒开
+  renderFromCache: function (notebookId) {
+    var cache = this.readHomeCache(notebookId)
+    if (!cache || !cache.records) return
+    var records = cache.records
+    var icons = this.categoryIcons
+    for (var i = 0; i < records.length; i++) {
+      if (!records[i].categoryIcon) records[i].categoryIcon = icons[records[i].category] || ''
+    }
+    this.setData({
+      records: records,
+      currentNotebookIcon: cache.notebookIcon || '',
+      currentNotebookIsTeam: !!cache.notebookIsTeam,
+      currentNotebookMemberCount: cache.memberCount || 1
+    })
+    this.updateStats(records)
+    this.filterRecords()
+  },
+
+  // useCache: true 时先用本地缓存秒开，再后台云函数刷新；false 时直接后台刷新
+  loadRecords: function (useCache) {
     var that = this
     var notebookId = this.data.currentNotebookId
     var userInfo = app.getUserInfo()
     if (!userInfo || !userInfo.openId || !notebookId) return
+
+    // 秒开：先渲染本地缓存
+    if (useCache) {
+      this.renderFromCache(notebookId)
+    }
 
     wx.cloud.callFunction({
       name: 'teamRecords',
@@ -736,9 +818,11 @@ Page({
           records[i].categoryIcon = icons[records[i].category] || ''
         }
         that.resolveRecordImages(records, function () {
+          that._loadedNotebookId = notebookId
           that.setData({ records: records })
           that.updateStats(records)
           that.filterRecords()
+          that.writeHomeCache()
         })
       },
       fail: function (err) {
@@ -1208,6 +1292,7 @@ Page({
                         })
                         that.setData({ records: records, imagePreviewVisible: false, imagePreviewUrl: url })
                         that.filterRecords()
+                        that.writeHomeCache()
                         if (oldImageFileID && oldImageFileID !== uploadRes.fileID) {
                           wx.cloud.deleteFile({ fileList: [oldImageFileID] })
                         }
@@ -1272,6 +1357,7 @@ Page({
             })
             that.setData({ records: records, imagePreviewVisible: false })
             that.filterRecords()
+            that.writeHomeCache()
             wx.showToast({ title: '已删除', icon: 'success' })
           },
           fail: function () { wx.showToast({ title: '删除失败', icon: 'none' }) }
@@ -1306,6 +1392,7 @@ Page({
               that.setData({ records: records })
               that.updateStats(records)
               that.filterRecords()
+              that.writeHomeCache()
               wx.showToast({ title: '已删除', icon: 'none' })
             },
             fail: function (err) {
@@ -1527,6 +1614,7 @@ Page({
         that.setData({ records: records, recordEditVisible: false })
         that.updateStats(records)
         that.filterRecords()
+        that.writeHomeCache()
         wx.showToast({ title: '已保存', icon: 'success' })
       },
       fail: function (err) {
@@ -1546,6 +1634,22 @@ Page({
       filterValue: type === 'time' ? value.substring(0, 10) : value
     }
 
+    wx.navigateTo({ url: '/pages/records/records' })
+  },
+
+  // 点击每日消费日历中的某一天，跳转到当天的记录页
+  onCalendarDayTap: function (e) {
+    var ds = e.currentTarget.dataset
+    if (ds.empty) return
+    if (!ds.amount || ds.amount <= 0) {
+      wx.showToast({ title: '当天没有消费记录', icon: 'none' })
+      return
+    }
+    var month = this.data.analysisMonth
+    if (!month) return
+    var day = Number(ds.day)
+    var date = month + '-' + (day < 10 ? '0' + day : String(day))
+    app.tagFilterData = { filterType: 'date', filterValue: date }
     wx.navigateTo({ url: '/pages/records/records' })
   }
 })

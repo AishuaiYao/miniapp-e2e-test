@@ -218,7 +218,7 @@
               <text wx:for="{{['日','一','二','三','四','五','六']}}" wx:key="*this">{{item}}</text>
             </view>
             <view class="calendar-grid">
-              <view wx:for="{{calendarDays}}" wx:key="index" class="calendar-day {{item.empty ? 'calendar-empty' : 'heat-level-' + item.level}}">
+              <view wx:for="{{calendarDays}}" wx:key="index" class="calendar-day {{item.empty ? 'calendar-empty' : 'heat-level-' + item.level}}" bindtap="onCalendarDayTap" data-day="{{item.day}}" data-empty="{{item.empty}}" data-amount="{{item.amount}}">
                 <text wx:if="{{!item.empty}}" class="calendar-day-number">{{item.day}}</text>
                 <text wx:if="{{item.amount > 0}}" class="calendar-day-amount">¥{{item.amount}}</text>
               </view>
@@ -234,6 +234,14 @@
             </view>
           </block>
         </view>
+      </view>
+    </view>
+
+    <!-- ====== 我的消费画像 ====== -->
+    <view class="section ai-report-section" wx:if="{{records.length > 0}}">
+      <view class="section-title">AI 分析报告</view>
+      <view class="ai-report-card">
+        <button class="ai-report-btn" bindtap="goToAIReport">我的消费画像</button>
       </view>
     </view>
 
@@ -253,7 +261,7 @@
       <view class="text-modal-title">文本记账</view>
       <textarea
         class="text-modal-input"
-        placeholder="如：刚刚在五道口买枣糕花费19.8元"
+        placeholder="五道口买枣糕花了19.8，打车13.6，超市买水2块..."
         placeholder-class="text-modal-placeholder"
         value="{{textInputValue}}"
         bindinput="onTextInputChange"

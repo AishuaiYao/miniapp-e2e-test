@@ -62,8 +62,14 @@
       </view>
     </view>
 
+    <!-- 加载中 -->
+    <view class="loading-wrap" wx:if="{{loading}}">
+      <view class="loading-ring"></view>
+      <text class="loading-text">正在加载记录...</text>
+    </view>
+
     <!-- 空状态 -->
-    <view class="section empty-section" wx:if="{{records.length === 0}}">
+    <view class="section empty-section" wx:if="{{!loading && records.length === 0}}">
       <view class="empty-illustration">📝</view>
       <text class="empty-text">没有相关记录</text>
     </view>

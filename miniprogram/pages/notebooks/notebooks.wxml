@@ -11,10 +11,11 @@
         <view class="hamburger-line"></view>
       </view>
     </view>
-    <view class="nav-bar-title">我的账本</view>
-    <view class="nav-bar-right">
-      <view class="nav-add-btn" bind:tap="showCreatePopup">+</view>
+    <view class="nav-bar-center">
+      <view class="nav-bar-title">我的账本</view>
+      <view class="notebook-subtitle">点击选择一个账本</view>
     </view>
+    <view class="nav-bar-right"></view>
   </view>
 
   <!-- 账本列表 -->
@@ -65,6 +66,9 @@
     <text class="empty-hint">创建你的第一个账本开始记账吧</text>
     <button class="btn-create-first" bind:tap="showCreatePopup">创建账本</button>
   </view>
+
+  <!-- 右下角悬浮加号：创建账本 -->
+  <view class="fab-add" bind:tap="showCreatePopup">+</view>
 
   <!-- 选择账本类型弹窗 -->
   <view class="create-mask" wx:if="{{showTypeSelect}}" catchtouchmove="{{true}}">
