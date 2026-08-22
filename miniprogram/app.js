@@ -1,6 +1,5 @@
 App({
   globalData: {
-    aliyunApiKey: null,
     userInfo: null,
     currentNotebookId: '',
     currentNotebookName: '',
@@ -24,9 +23,6 @@ App({
 
     // 加载当前账本
     this.loadCurrentNotebook()
-
-    // 通过云函数获取阿里云 API Key
-    this.loadAliyunApiKey()
   },
 
   // ========== 导航栏尺寸 ==========
@@ -208,29 +204,5 @@ App({
     if (nb.lastUsedAt) return nb.lastUsedAt
     var t = Date.parse(nb.createdAt)
     return t ? t : 0
-  },
-
-  // ========== 阿里云 API Key ==========
-
-  loadAliyunApiKey: function () {
-    var that = this
-
-    wx.cloud.callFunction({
-      name: 'getConfig',
-      success: function (res) {
-        if (res.result && res.result.success) {
-          that.globalData.aliyunApiKey = res.result.apiKey
-        } else {
-          console.error('[app] 获取 API Key 失败:', res.result)
-        }
-      },
-      fail: function (err) {
-        console.error('[app] 调用 getConfig 失败:', err)
-      }
-    })
-  },
-
-  getAliyunApiKey: function () {
-    return this.globalData.aliyunApiKey
   }
 })

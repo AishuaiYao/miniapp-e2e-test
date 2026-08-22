@@ -153,6 +153,8 @@ Page({
         if (queryRes.data.length > 0) {
           // 已有记录，更新
           var userId = queryRes.data[0]._id
+          // 记下旧头像 fileID，更新成功后删除，避免云存储积累孤儿头像
+          var oldAvatarUrl = queryRes.data[0].avatarUrl || ''
           db.collection('users').doc(userId).update({
             data: {
               nickName: nickName.trim(),
@@ -160,6 +162,17 @@ Page({
               updatedAt: new Date()
             },
             success: function () {
+              // 新头像已生效，清理旧头像（仅当旧的是 cloud:// 且确实换掉了）
+              // 走云函数删除：前端 deleteFile 受"仅创建者可删"限制，跨登录身份不同会失败
+              if (avatarUrl && oldAvatarUrl && oldAvatarUrl.indexOf('cloud://') === 0 && oldAvatarUrl !== avatarUrl) {
+                wx.cloud.callFunction({
+                  name: 'deleteFiles',
+                  data: { fileList: [oldAvatarUrl] },
+                  fail: function (err) {
+                    console.error('[account] 删除旧头像失败:', err)
+                  }
+                })
+              }
               userInfo._id = userId
               app.setUserInfo(userInfo)
               that.setData({

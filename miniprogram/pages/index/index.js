@@ -450,71 +450,52 @@ Page({
       asrText: ''
     })
 
+    // 录音上传云存储，云端 asr 云函数下载后识别
     var that = this
-    var fileManager = wx.getFileSystemManager()
-    fileManager.readFile({
+    var cloudPath = 'audio/' + Date.now() + '_' + Math.floor(Math.random() * 100000) + '.mp3'
+    wx.cloud.uploadFile({
+      cloudPath: cloudPath,
       filePath: res.tempFilePath,
-      encoding: 'base64',
-      success: function (fileRes) {
-        that.callASR(fileRes.data)
+      success: function (uploadRes) {
+        that.callASR(uploadRes.fileID)
       },
       fail: function (err) {
-        console.error('[ASR] 读取文件失败:', err)
+        console.error('[ASR] 上传录音失败:', err)
         that.setData({ loading: false })
-        wx.showToast({ title: '读取录音失败', icon: 'none' })
+        wx.showToast({ title: '上传录音失败', icon: 'none' })
       }
     })
   },
 
   // ========== ASR ==========
 
-  callASR: function (audioBase64) {
-    var apiKey = app.getAliyunApiKey()
-    if (!apiKey) {
-      this.setData({ loading: false })
-      wx.showToast({ title: 'API Key 未就绪', icon: 'none' })
-      return
-    }
-
-    var audioData = 'data:audio/mpeg;base64,' + audioBase64
+  // 调用云端 asr 云函数识别，API Key 在云端环境变量中，前端不接触
+  callASR: function (fileID) {
     var that = this
 
-    wx.request({
-      url: 'https://llm-mhwgg01ku321wyjx.cn-beijing.maas.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation',
-      method: 'POST',
-      header: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer ' + apiKey,
-        'X-DashScope-SSE': 'disable'
-      },
-      data: {
-        model: 'qwen-audio-3.0-asr-flash',
-        input: {
-          messages: [{
-            role: 'user',
-            content: [{ type: 'input_audio', input_audio: { data: audioData } }]
-          }]
-        },
-        parameters: { format: 'mp3', sample_rate: '16000' }
-      },
+    wx.cloud.callFunction({
+      name: 'asr',
+      data: { fileID: fileID },
       success: function (res) {
-        console.log('[ASR] 响应:', res.data)
-        if (res.statusCode === 200 && res.data && res.data.text) {
-          var text = res.data.text
+        var result = res.result
+        if (result && result.success && result.text) {
+          var text = result.text
+          console.log('[ASR] 识别结果:', text)
           that.setData({
             asrText: text,
             loadingText: 'AI 正在分析...'
           })
           that.callHY3(text)
         } else {
+          console.error('[ASR] 识别失败:', result)
           that.setData({ loading: false })
-          wx.showToast({ title: '识别失败', icon: 'none' })
+          wx.showToast({ title: (result && result.error) || '识别失败', icon: 'none' })
         }
       },
       fail: function (err) {
-        console.error('[ASR] 失败:', err)
+        console.error('[ASR] 云函数调用失败:', err)
         that.setData({ loading: false })
-        wx.showToast({ title: '网络请求失败', icon: 'none' })
+        wx.showToast({ title: '识别失败，请重试', icon: 'none' })
       }
     })
   },
